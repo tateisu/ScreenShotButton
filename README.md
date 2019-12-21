@@ -1,8 +1,11 @@
 # ScreenShotButton
 Android app that shows overlay screenshot button
 
+![Screenshot_20191221_232648_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309445-08fa7400-244b-11ea-9dba-94005e2dc28b.jpg)
+![Screenshot_20191221_232724_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309446-0b5cce00-244b-11ea-84c6-180f9b7e562c.jpg)
+
 ### 特徴
-- スクリーンショット撮影アプリです。
+- Android用のスクリーンショット撮影アプリです。
 - 撮影ボタンを画面上にオーバーレイ表示するタイプ。
 - MediaProjectionを使った画面キャプチャで起こりがちな「取得できたけど内容がブランクイメージだった」を検出してリトライ内部でリトライします。
 - Huawei MediaPad M5 Pro(Android 9)でブランクイメージの自動検出と自動リトライはうまく動いてます。
