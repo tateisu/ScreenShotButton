@@ -9,7 +9,7 @@ Android app that shows overlay screenshot button
 ### 特徴
 - Android用のスクリーンショット撮影アプリです。
 - 撮影ボタンを画面上にオーバーレイ表示するタイプ。
-- MediaProjectionを使った画面キャプチャで起こりがちな「取得できたけど内容がブランクイメージだった」を検出してリトライ内部でリトライします。
+- MediaProjectionを使った画面キャプチャで起こりがちな「取得できたけど内容がブランクイメージだった」を検出してリトライします。
 - Huawei MediaPad M5 Pro(Android 9)でブランクイメージの自動検出と自動リトライはうまく動いてます。
 
 ### 欠点
