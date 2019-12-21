@@ -402,7 +402,7 @@ object Capture {
 
         if (!dir.mkdir() && !dir.isDirectory) error("not a directory: $dir")
 
-        dir = File(dir, "ScreenShotGhost")
+        dir = File(dir, App1.tagPrefix)
         if (!dir.mkdir() && !dir.isDirectory) error("not a directory: $dir")
 
         return dir
