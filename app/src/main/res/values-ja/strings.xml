@@ -1,0 +1,15 @@
+<resources>
+    <string name="capture">撮影</string>
+    <string name="captured_image">撮影した画像</string>
+    <string name="cancel">キャンセル</string>
+    <string name="start">開始</string>
+    <string name="stop">停止</string>
+    <string name="capture_standby">撮影待機</string>
+    <string name="capture_standby_description">画面にオーバーレイボタンを表示しています</string>
+    <string name="share">共有</string>
+    <string name="overlay_button_size">オーバーレイボタンのサイズ (単位:dp. 開始しなおす必要)</string>
+    <string name="overlay_service">オーバーレイボタンを表示</string>
+    <string name="show_post_view_after_capture">撮影後にポストビューを表示する</string>
+    <string name="save_png">PNG形式で保存 (すごく遅い)</string>
+    <string name="button_size_error"><![CDATA[1以上の整数を入力してください]]></string>
+</resources>

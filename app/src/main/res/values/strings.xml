@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name" translatable="false">ScreenShotButton</string>
+    <string name="capture">Capture</string>
+    <string name="captured_image">Captured image</string>
+    <string name="cancel">Cancel</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="capture_standby">Capture standby</string>
+    <string name="capture_standby_description">Showing overlay button on the screen.</string>
+    <string name="share">Share</string>
+    <string name="overlay_button_size">Overlay button size (unit:dp. restart required)</string>
+    <string name="overlay_service">Show overlay button</string>
+    <string name="show_post_view_after_capture">Show post view after capture</string>
+    <string name="save_png">Save as PNG file (very slow)</string>
+    <string name="button_size_error"><![CDATA[Please input integer >= 1]]></string>
+</resources>
