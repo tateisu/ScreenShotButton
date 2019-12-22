@@ -25,7 +25,7 @@ import kotlin.math.max
 class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchListener {
 
     companion object {
-        private var refService : WeakReference<MyService>? = null
+        private var refService: WeakReference<MyService>? = null
 
         fun getService() = refService?.get()
 
@@ -71,7 +71,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -79,17 +79,13 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         stopSelf()
     }
 
-
-    @UseExperimental(ExperimentalUnsignedTypes::class)
     private fun createRunningNotification(): Notification {
-
-        val channelId = "Capture Standby"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Create the NotificationChannel
             notificationManager.createNotificationChannel(
                 NotificationChannel(
-                    channelId,
+                    NOTIFICATION_CHANNEL_RUNNING,
                     getString(R.string.capture_standby),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
@@ -98,7 +94,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             )
         }
 
-        return NotificationCompat.Builder(this, channelId)
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_RUNNING)
             .setSmallIcon(R.drawable.notification_icon1)
             .setContentTitle(getString(R.string.capture_standby))
             .setContentText(getString(R.string.capture_standby_description))
@@ -128,7 +124,6 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             .build()
     }
 
-
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
         refService = WeakReference(this)
@@ -141,7 +136,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
         val dm = resources.displayMetrics
 
-        this.buttonSize =Pref.ipCameraButtonSize(App1.pref).toFloat().dp2px(dm)
+        this.buttonSize = Pref.ipCameraButtonSize(App1.pref).toFloat().dp2px(dm)
 
         val buttonX = clipInt(
             0,
@@ -198,11 +193,11 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     //////////////////////////////////////////////
     // 撮影ボタンをドラッグして移動できるようにする
 
-    private fun setButtonDrawable(showing:Boolean){
-        if(showing){
+    private fun setButtonDrawable(showing: Boolean) {
+        if (showing) {
             btnCamera.setBackgroundResource(R.drawable.btn_bg_round)
             btnCamera.setImageResource(R.drawable.ic_camera)
-        }else{
+        } else {
             btnCamera.background = null
             btnCamera.setImageDrawable(null)
         }
@@ -271,7 +266,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     ///////////////////////////////////////////////////////////////
 
     override fun onClick(v: View?) {
-        val timeClick=SystemClock.elapsedRealtime()
+        val timeClick = SystemClock.elapsedRealtime()
         when (v?.id) {
             R.id.btnCamera -> {
                 launch {
@@ -282,9 +277,9 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
                         btnCamera.visibility = View.GONE
 
-                        val pathOrUri = Capture.capture(this@MyService,timeClick)
+                        val pathOrUri = Capture.capture(this@MyService, timeClick)
 
-                        if( Pref.bpShowPostView(App1.pref)) {
+                        if (Pref.bpShowPostView(App1.pref)) {
                             ActViewer.open(this@MyService, pathOrUri)
                         }
                     } catch (ex: Throwable) {
