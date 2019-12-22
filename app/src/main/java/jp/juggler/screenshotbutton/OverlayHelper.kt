@@ -1,3 +1,0 @@
-package jp.juggler.screenshotbutton
-
-

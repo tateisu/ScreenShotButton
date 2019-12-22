@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.view.*
 import android.widget.ImageButton
 import androidx.core.app.NotificationCompat
@@ -197,6 +198,15 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     //////////////////////////////////////////////
     // 撮影ボタンをドラッグして移動できるようにする
 
+    private fun setButtonDrawable(showing:Boolean){
+        if(showing){
+            btnCamera.setBackgroundResource(R.drawable.btn_bg_round)
+            btnCamera.setImageResource(R.drawable.ic_camera)
+        }else{
+            btnCamera.background = null
+            btnCamera.setImageDrawable(null)
+        }
+    }
 
     private fun updateDragging(
         ev: MotionEvent,
@@ -205,10 +215,9 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         val deltaX = ev.rawX - startMotionX
         val deltaY = ev.rawY - startMotionY
         if (!isDragging) {
-            if (max(abs(deltaX), abs(deltaY)) < draggingThreshold) {
-                return false
-            }
+            if (max(abs(deltaX), abs(deltaY)) < draggingThreshold) return false
             isDragging = true
+            setButtonDrawable(true)
         }
         layoutParam.x = clipInt(0, maxX, startLpX + deltaX.toInt())
         layoutParam.y = clipInt(0, maxY, startLpY + deltaY.toInt())
@@ -227,6 +236,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         if (v?.id != R.id.btnCamera) return false
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                setButtonDrawable(false)
                 val dm = resources.displayMetrics
                 startLpX = layoutParam.x
                 startLpY = layoutParam.y
@@ -249,7 +259,9 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
-                updateDragging(ev, save = true)
+                if (!updateDragging(ev, save = true)) {
+                    setButtonDrawable(true)
+                }
                 return true
             }
         }
@@ -259,6 +271,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     ///////////////////////////////////////////////////////////////
 
     override fun onClick(v: View?) {
+        val timeClick=SystemClock.elapsedRealtime()
         when (v?.id) {
             R.id.btnCamera -> {
                 launch {
@@ -268,17 +281,17 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
                         }
 
                         btnCamera.visibility = View.GONE
-                        delay(15L)
-                        val pathOrUri = Capture.capture(this@MyService)
+
+                        val pathOrUri = Capture.capture(this@MyService,timeClick)
 
                         if( Pref.bpShowPostView(App1.pref)) {
                             ActViewer.open(this@MyService, pathOrUri)
                         }
-
                     } catch (ex: Throwable) {
                         log.eToast(this@MyService, ex, "capture failed.")
                     } finally {
                         btnCamera.visibility = View.VISIBLE
+                        setButtonDrawable(true)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package jp.juggler.util
 
+import android.graphics.Bitmap
 import android.util.DisplayMetrics
 import android.view.View
 
@@ -26,4 +27,13 @@ fun View.vg(visible: Boolean): View? {
     }
 }
 
-fun String?.notEmpty() = if (this?.isNotEmpty() == true) this else null
+fun String?.notEmpty() =
+    if (this?.isNotEmpty() == true) this else null
+
+fun <T:Any?> Bitmap.use(block:(Bitmap)->T):T{
+    try{
+        return block(this)
+    }finally{
+        this.recycle()
+    }
+}

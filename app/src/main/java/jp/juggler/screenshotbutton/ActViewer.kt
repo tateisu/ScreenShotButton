@@ -154,7 +154,7 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
 
         launch {
             try {
-                tvDesc.text = "$fileOrUri\nloading…"
+                tvDesc.text = "loading…\n$fileOrUri"
 
                 val bitmap = if(spec.startsWith("/") ){
                     withContext(Dispatchers.IO) {
@@ -172,13 +172,13 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
                     ivImage.setImageBitmap(bitmap)
                     this@ActViewer.bitmap = bitmap
 
-                    tvDesc.text = "$fileOrUri\n${bitmap.width}x${bitmap.height}"
+                    tvDesc.text = "${bitmap.width}x${bitmap.height}\n$fileOrUri"
                 }
             } catch (ex: Throwable) {
                 log.eToast(this@ActViewer, ex, "load failed.")
                 if(coroutineContext.isActive){
                     ivImage.setImageResource(R.drawable.ic_error)
-                    tvDesc.text = "$fileOrUri\nload error"
+                    tvDesc.text = "load error\n$fileOrUri"
                 }
             }
         }
