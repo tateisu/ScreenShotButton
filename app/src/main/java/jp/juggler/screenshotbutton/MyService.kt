@@ -9,13 +9,15 @@ import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.view.*
-import android.widget.ImageButton
 import androidx.core.app.NotificationCompat
 import jp.juggler.util.LogCategory
 import jp.juggler.util.clipInt
 import jp.juggler.util.dp2px
 import jp.juggler.util.px2dp
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
@@ -52,7 +54,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     private lateinit var layoutParam: WindowManager.LayoutParams
 
-    private lateinit var btnCamera: ImageButton
+    private lateinit var btnCamera: MyImageButton
 
 
     private var startLpX = 0
@@ -163,7 +165,8 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
                 WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.LEFT or Gravity.TOP
@@ -172,6 +175,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         }
 
         windowManager.addView(viewRoot, layoutParam)
+
         if (!Capture.updateMediaProjection(this)) stopSelf()
     }
 

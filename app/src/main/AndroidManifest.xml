@@ -35,7 +35,13 @@
             >
         </activity>
 
-        <service android:name=".MyService" android:exported="false" />
+        <service
+            android:name=".MyService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection"
+            tools:targetApi="q"
+            />
+
         <receiver android:name=".MyReceiver" />
     </application>
 

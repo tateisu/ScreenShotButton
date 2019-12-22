@@ -69,10 +69,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         when (requestCode) {
-            REQUEST_CODE_OVERLAY -> if(canOverlay() ) dispatch()
+            REQUEST_CODE_OVERLAY -> if(canOverlay() )
+                dispatch()
 
             REQUEST_CODE_SCREEN_CAPTURE ->
-                Capture.handleScreenCaptureIntentResult(this, resultCode, data)
+                if(Capture.handleScreenCaptureIntentResult(this, resultCode, data))
+                    dispatch()
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
