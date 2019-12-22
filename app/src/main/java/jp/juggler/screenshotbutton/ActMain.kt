@@ -174,10 +174,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     private fun dispatch() {
         if (!prepareWritePermission()) return
-        if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
         if (!prepareOverlay()) return
 
         if (timeStartButtonTapped > 0L ) {
+
+            if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
+
             timeStartButtonTapped = 0L
             ContextCompat.startForegroundService(this, Intent(this, MyService::class.java))
         }

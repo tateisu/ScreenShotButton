@@ -170,7 +170,7 @@ object Pref {
     )
     val ipCameraButtonSize = IntPref(
         "cameraButtonSize",
-        24
+        40
     )
 
     // true=PNG,  false=JPEG
