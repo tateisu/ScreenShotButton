@@ -83,7 +83,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     private fun createRunningNotification(): Notification {
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= 26) {
             // Create the NotificationChannel
             notificationManager.createNotificationChannel(
                 NotificationChannel(
@@ -173,7 +173,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             x = buttonX
             y = buttonY
         }
-
+        btnCamera.windowLayoutParams = layoutParam
         windowManager.addView(viewRoot, layoutParam)
 
         if (!Capture.updateMediaProjection(this)) stopSelf()
@@ -228,6 +228,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
                 .apply()
         }
         windowManager.updateViewLayout(viewRoot, layoutParam)
+        btnCamera.updateExclusion()
         return true
     }
 

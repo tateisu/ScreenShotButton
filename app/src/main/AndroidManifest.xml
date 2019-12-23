@@ -32,8 +32,8 @@
             android:name=".ActViewer"
             android:theme="@style/AppTheme.Viewer"
             android:launchMode="singleTop"
-            >
-        </activity>
+            android:taskAffinity="jp.juggler.screenshotbutton.viewer"
+            />
 
         <service
             android:name=".MyService"

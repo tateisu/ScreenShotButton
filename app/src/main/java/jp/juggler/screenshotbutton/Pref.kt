@@ -185,4 +185,9 @@ object Pref {
         true,
         R.id.swShowPostView
     )
+
+    val spSaveTreeUri = StringPref(
+        "SaveTreeUri",
+        ""
+    )
 }

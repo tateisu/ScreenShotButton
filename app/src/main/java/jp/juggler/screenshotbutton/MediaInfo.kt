@@ -3,16 +3,23 @@ package jp.juggler.screenshotbutton
 import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import jp.juggler.util.LogCategory
 
 class MediaInfo(
     val uri: Uri,
-    val mimeType: String?
+    val mimeType: String?,
+    val path:String?
 ) {
     companion object {
         private val log = LogCategory("${App1.tagPrefix}/MediaInfo")
+
+        private fun Cursor.getStringOrNull(idx:Int)= when {
+            isNull(idx) -> null
+            else -> getString(idx)
+        }
 
         @SuppressLint("Recycle")
         @Suppress("DEPRECATION")
@@ -35,17 +42,15 @@ class MediaInfo(
                         null
                     )
                 } ?.use { cursor ->
+                    val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+                    val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
+                    val idxPath = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
                         if (cursor.moveToNext()) {
-                            val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
-                            val idxMimeType =
-                                cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
-                            val id = cursor.getLong(idxId)
-                            val uri = ContentUris.withAppendedId(ActViewer.baseUri, id)
-                            val mimeType = when {
-                                cursor.isNull(idxMimeType) -> null
-                                else -> cursor.getString(idxMimeType)
-                            }
-                            MediaInfo(uri, mimeType)
+                            MediaInfo(
+                                ContentUris.withAppendedId(ActViewer.baseUri, cursor.getLong(idxId)),
+                                cursor.getStringOrNull(idxMimeType),
+                                cursor.getStringOrNull(idxPath)
+                            )
                         } else {
                             log.eToast(context, false, "can't find content uri.")
                             null

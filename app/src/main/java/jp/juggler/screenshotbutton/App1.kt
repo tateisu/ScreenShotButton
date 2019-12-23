@@ -8,6 +8,7 @@ class App1 : Application(){
     companion object{
         const val tagPrefix = "ScreenShotButton"
 
+
         lateinit var pref : SharedPreferences
 
         private var isPrepared = false

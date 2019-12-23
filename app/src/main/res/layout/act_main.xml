@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/svRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
     android:scrollbarStyle="outsideOverlay"
-    android:id="@+id/svRoot"
     tools:context=".ActMain">
 
     <LinearLayout
@@ -13,77 +13,101 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="12dp"
-        android:paddingEnd="12dp"
         android:paddingTop="6dp"
-        android:paddingBottom="6dp"
-        >
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
 
-        <View  style="@style/setting_border" />
-
-        <TextView
-            style="@style/setting_caption"
-            android:text="@string/overlay_service"
-            />
-
-            <Button
-                style="@style/setting_item"
-                android:id="@+id/btnStart"
-                android:layout_width="wrap_content"
-                android:text="@string/start"
-                />
-
-            <Button
-                style="@style/setting_item"
-                android:id="@+id/btnStop"
-                android:layout_width="wrap_content"
-                android:text="@string/stop"
-                />
-
-        <View  style="@style/setting_border" />
+        <View style="@style/setting_border" />
 
         <TextView
             style="@style/setting_caption"
-            android:text="@string/overlay_button_size"
-            />
+            android:text="@string/overlay_service" />
+
+        <Button
+            android:id="@+id/btnStart"
+            style="@style/setting_item"
+            android:layout_width="wrap_content"
+            android:text="@string/start" />
+
+        <Button
+            android:id="@+id/btnStop"
+            style="@style/setting_item"
+            android:layout_width="wrap_content"
+            android:text="@string/stop" />
+
+        <TextView
+            style="@style/setting_item"
+            android:textSize="12sp"
+            android:textColor="#000"
+            android:text="@string/overlay_button_desc"/>
+
+        <View style="@style/setting_border" />
+
+        <TextView
+            style="@style/setting_caption"
+            android:text="@string/overlay_button_size" />
 
         <EditText
-            style="@style/setting_item"
             android:id="@+id/etButtonSize"
-            android:inputType="number"
-            />
-        <TextView
             style="@style/setting_item"
+            android:inputType="number" />
+
+        <TextView
             android:id="@+id/tvButtonSizeError"
-            android:textColor="#c00"
+            style="@style/setting_item"
             android:text="@string/button_size_error"
-            />
+            android:textColor="#c00" />
 
-        <View  style="@style/setting_border" />
+        <View style="@style/setting_border" />
 
         <TextView
             style="@style/setting_caption"
-            android:text="@string/save_png"
-            />
+            android:text="@string/save_png" />
 
         <Switch
-            style="@style/setting_item"
             android:id="@+id/swSavePng"
-            />
+            style="@style/setting_item" />
 
 
-        <View  style="@style/setting_border" />
+        <View style="@style/setting_border" />
 
         <TextView
             style="@style/setting_caption"
-            android:text="@string/show_post_view_after_capture"
-            />
+            android:text="@string/show_post_view_after_capture" />
 
         <Switch
-            style="@style/setting_item"
             android:id="@+id/swShowPostView"
-            />
+            style="@style/setting_item" />
 
-        <View  style="@style/setting_border" />
+        <View style="@style/setting_border" />
+
+        <TextView
+            style="@style/setting_caption"
+            android:text="@string/save_folder" />
+
+        <LinearLayout
+            style="@style/setting_item"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            >
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#000"
+                android:id="@+id/tvSaveFolder"
+                />
+            <ImageButton
+                android:id="@+id/btnSaveFolder"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:elevation="3dp"
+                android:src="@drawable/ic_edit"
+                android:contentDescription="@string/edit" />
+
+        </LinearLayout>
+
+        <View style="@style/setting_border" />
 
     </LinearLayout>
 </ScrollView>
