@@ -14,5 +14,4 @@ class MyReceiver : BroadcastReceiver() {
             ACTION_RUNNING_DELETE-> context.stopService(Intent(context,MyService::class.java))
         }
     }
-
 }

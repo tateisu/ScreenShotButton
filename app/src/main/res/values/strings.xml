@@ -1,7 +1,5 @@
 <resources>
     <string name="app_name" translatable="false">ScreenShotButton</string>
-    <string name="capture">Capture</string>
-    <string name="captured_image">Captured image</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="start">Start</string>
@@ -16,7 +14,7 @@
     <string name="button_size_error"><![CDATA[Please input integer >= 1]]></string>
     <string name="please_allow_overlay_permission">Please allow Overlay permission.\n\nNote: After change setting, please back to this app.</string>
     <string name="please_select_save_folder">Please select save folder.\n\nNote: To show all storage, please open menu on top-right corner, select "show storage", then open menu on top-left corner and select storage.\n\nAlso you can create new folder from menu on top-right corner.</string>
-    <string name="save_folder">Save folder (Android 7+)</string>
+    <string name="save_folder">Save folder</string>
     <string name="edit">Edit</string>
     <string name="not_selected">Not selected</string>
     <string name="overlay_button_desc">You can move the overlay button by dragging.\nNotice if Android 10+ System Gesture Navigation is enabled, the buttons on the edge may not respond.</string>

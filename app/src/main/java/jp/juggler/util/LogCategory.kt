@@ -4,10 +4,11 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 
+@Suppress("unused")
 class LogCategory(private val tag: String) {
     companion object{
 
-        var lastToast : Toast? = null
+        private var lastToast : Toast? = null
 
         private fun showToast(
             context: Context,

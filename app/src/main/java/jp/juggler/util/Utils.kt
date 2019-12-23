@@ -1,11 +1,11 @@
 package jp.juggler.util
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Matrix
+import android.graphics.Paint
 import android.util.DisplayMetrics
 import android.view.View
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.suspendCoroutine
 
 @Suppress("SameParameterValue")
 fun clipInt(min: Int, max: Int, v: Int) = when {
@@ -33,7 +33,7 @@ fun View.vg(visible: Boolean): View? {
 fun String?.notEmpty() =
     if (this?.isNotEmpty() == true) this else null
 
-fun <T : Any?> Bitmap.use(block: (Bitmap) -> T): T {
+suspend fun <T : Any?> Bitmap.use(block: suspend (Bitmap) -> T): T {
     try {
         return block(this)
     } finally {
@@ -41,6 +41,20 @@ fun <T : Any?> Bitmap.use(block: (Bitmap) -> T): T {
     }
 }
 
-// waiting cont.resume(T) with timeout.
-suspend fun <T> waitEventWithTimeout(timeoutMs: Long, initializer: (Continuation<T>) -> Unit): T? =
-    withTimeoutOrNull(timeoutMs) { suspendCoroutine<T> { initializer(it) } }
+fun createResizedBitmap(src: Bitmap,dstWidth:Int,dstHeight:Int): Bitmap {
+    val srcW = src.width
+    val srcH = src.height
+    return Bitmap.createBitmap(dstWidth, dstHeight, Bitmap.Config.ARGB_8888)
+        ?.also{ dst->
+            val canvas = Canvas(dst)
+            val paint = Paint()
+            paint.isFilterBitmap = true
+            val matrix = Matrix()
+            matrix.postScale(
+                (dstWidth.toFloat() + 1f) / srcW.toFloat(),
+                (dstHeight.toFloat() + 1f) / srcH.toFloat()
+            )
+            canvas.drawBitmap(src, matrix, paint)
+        }
+        ?: error("createBitmap returns null")
+}

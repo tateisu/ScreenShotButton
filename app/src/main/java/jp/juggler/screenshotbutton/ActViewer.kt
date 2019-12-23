@@ -6,10 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
-import android.provider.MediaStore
 import android.view.View
 import android.view.Window
 import android.widget.ImageView
@@ -18,8 +16,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import jp.juggler.util.*
 import kotlinx.coroutines.*
-import java.io.File
-import java.io.FileInputStream
 import kotlin.coroutines.CoroutineContext
 
 class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
@@ -27,57 +23,36 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     companion object {
         private val log = LogCategory("${App1.tagPrefix}/ActViewer")
 
-        const val EXTRA_FILE_OR_URI = "fileOrUri"
+        const val EXTRA_URI = "uri"
 
-        val baseUri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-        fun open(context: Context, pathOrUri: String) {
+        fun open(context: Context, uri: Uri) {
             context.startActivity(
                 Intent(context, ActViewer::class.java)
                     .apply {
-                        putExtra(EXTRA_FILE_OR_URI, pathOrUri)
+                        data = uri
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
             )
         }
 
-        private fun delete(context: Context, src: String): Boolean {
+        private fun delete(context: Context, uri: Uri?) {
+            uri ?: return
 
-            if (src.startsWith('/')) {
-                val file = File(src)
-                if (!file.delete() && file.exists())
-                    error("File.delete() failed, but exists.")
+            when {
+                isExternalStorageDocument(uri) -> {
+                    if(!deleteDocument(context,uri)) error("deleteDocument returns false")
+                }
 
-                // ファイルを消した場合、MediaStore中の項目も削除を試みる
-                // ただし処理は止めない
-                try {
-                    MediaInfo.find(context, src)?.let { media ->
+                else -> {
+                    // may MediaStore content url
+                    findMedia(context, uri)?.let { media ->
                         val count = context.contentResolver.delete(media.uri, null, null)
-                        if (count != 1) log.e("delete() returns $count")
+                        if (count != 1) error("delete() returns $count")
+                        return
                     }
-                } catch (ex: Throwable) {
-                    log.e(ex, "MediaStore deletion failed.")
-                }
-                return true
-            }
-
-            val uri = Uri.parse(src)
-
-            // file://
-            if (uri.authority == "file") {
-                val path = uri.path ?: error("missing path.")
-                return delete(context, path)
-            }
-
-            if (Build.VERSION.SDK_INT >= API_USE_DOCUMENT) {
-                if (isExternalStorageDocument(uri)) {
-                    val df = DocumentFile.fromSingleUri(context, uri)
-                        ?: error("DocumentFile.fromSingleUri() returns null.")
-                    if (!df.delete() && df.exists()) error("can't delete, but exists.")
-                    return true
+                    error("missing media for the uri.")
                 }
             }
-
             // contentResolver.delete() throws SecurityException on API 29 device.
             // val count = contentResolver.delete(, null, null)
             // if(count <= 0) error("delete returns $count")
@@ -101,56 +76,37 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
             // at android.content.ContentProviderClient.call(ContentProviderClient.java:558)
             // at android.content.ContentProviderClient.call(ContentProviderClient.java:546)
             // at android.provider.MediaStore.getDocumentUri(MediaStore.java:3471)
-
-            // may MediaStore content url
-            MediaInfo.find(context, src)?.let { media ->
-                val count = context.contentResolver.delete(media.uri, null, null)
-                if (count != 1) error("delete() returns $count")
-                return true
-            }
-            error("missing media for the uri.")
         }
 
-        private fun shareMediaByUri(
-            context: Context,
-            uri:Uri,
-            mimeType :String? = context.contentResolver.getType(uri)
-        ) {
-            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                putExtra(Intent.EXTRA_STREAM, uri)
-                if(mimeType!=null) type = mimeType
-            }, context.getString(R.string.share)))
-        }
+        private fun share(context: Context, uri: Uri?) {
+            uri ?: return
 
-        private fun shareMediaByPath(context: Context, path: String) {
-            MediaInfo.find(context, path)?.let { media ->
-                return shareMediaByUri(context,media.uri,media.mimeType)
-            }
-            log.eToast(context, true, "can't find media uri for $path")
-        }
-
-        private fun share(context: Context, src: String) {
-
-            if (src.startsWith('/')) {
-                return shareMediaByPath(context, src)
+            fun actionSend(uri: Uri, mimeTypeArg: String?) {
+                val mimeType = mimeTypeArg ?: context.contentResolver.getType(uri)
+                context.startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).apply {
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            if (mimeType != null) type = mimeType
+                        },
+                        context.getString(R.string.share)
+                    )
+                )
             }
 
-            // may file:// uri
-            val uri = Uri.parse(src)
-            if (uri.authority == "file") {
-                return shareMediaByPath(context, uri.path ?: error("missing path."))
-            }
+            when {
+                isExternalStorageDocument(uri) ->
+                    actionSend(uri, DocumentFile.fromSingleUri(context, uri)?.type)
 
-            if (Build.VERSION.SDK_INT >= API_USE_DOCUMENT) {
-                if (isExternalStorageDocument(uri)) {
-                    return shareMediaByUri(context,uri,DocumentFile.fromSingleUri(context, uri)?.type)
+                else -> {
+                    findMedia(context, uri)?.let { media ->
+                        return actionSend(media.uri, media.mimeType)
+                    }
+                    log.eToast(context, true, "can't find media uri for $uri")
                 }
             }
-
-            return shareMediaByPath(context, src)
         }
     }
-
 
     private lateinit var activityJob: Job
 
@@ -161,7 +117,7 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     private lateinit var ivImage: ImageView
     private var bitmap: Bitmap? = null
 
-    private var fileOrUri: String = ""
+    private var lastUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         activityJob = Job()
@@ -170,15 +126,15 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
 
         initUI()
         if (savedInstanceState != null) {
-            load(savedInstanceState.getString(EXTRA_FILE_OR_URI))
+            savedInstanceState.getString(EXTRA_URI)?.let { load(Uri.parse(it)) }
         } else {
-            load(intent?.getStringExtra(EXTRA_FILE_OR_URI))
+            intent?.data?.let { load(it) }
         }
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        load(intent?.getStringExtra(EXTRA_FILE_OR_URI))
+        intent?.data?.let { load(it) }
     }
 
     override fun onDestroy() {
@@ -199,7 +155,7 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     }
 
     private fun Bundle.saveState() {
-        putString(EXTRA_FILE_OR_URI, fileOrUri)
+        lastUri?.let { putString(EXTRA_URI, it.toString()) }
     }
 
     override fun onBackPressed() {
@@ -214,16 +170,17 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
             R.id.btnBack -> finish()
 
             R.id.btnDelete -> try {
-                if (delete(this, fileOrUri)) finish()
+                delete(this, lastUri)
+                finish()
             } catch (ex: Throwable) {
-                log.eToast(this, ex, "delete failed. $fileOrUri")
+                log.eToast(this, ex, "delete failed. $lastUri")
             }
 
 
             R.id.btnShare -> try {
-                share(this, fileOrUri)
+                share(this, lastUri)
             } catch (ex: Throwable) {
-                log.eToast(this, ex, "share failed. $fileOrUri")
+                log.eToast(this, ex, "share failed. $lastUri")
             }
         }
     }
@@ -241,29 +198,22 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun load(spec: String?) {
-        if (spec?.isEmpty() != false) return
+    private fun load(uri: Uri) {
 
-        fileOrUri = spec
+        this.lastUri = uri
 
-        val path =  pathFromDocumentUri(this, fileOrUri) ?: fileOrUri
+        val path = pathFromDocumentUri(this, uri) ?: error("")
 
         launch {
             try {
                 tvDesc.text = "loading…\n$path"
 
-                val bitmap = if (spec.startsWith("/")) {
-                    withContext(Dispatchers.IO) {
-                        FileInputStream(File(fileOrUri))
-                            .use { BitmapFactory.decodeStream(it) }
+                val bitmap = withContext(Dispatchers.IO) {
+                    contentResolver.openInputStream(uri).use {
+                        BitmapFactory.decodeStream(it)
                     }
-                } else {
-                    withContext(Dispatchers.IO) {
-                        contentResolver.openInputStream(Uri.parse(spec)).use {
-                            BitmapFactory.decodeStream(it)
-                        }
-                    }
-                } ?: error("bitmap is null")
+                }
+                    ?: error("bitmap is null")
                 if (coroutineContext.isActive) {
                     ivImage.setImageBitmap(bitmap)
                     this@ActViewer.bitmap = bitmap

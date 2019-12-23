@@ -1,10 +1,11 @@
 package jp.juggler.screenshotbutton
 
-import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.Image
@@ -12,24 +13,17 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.SystemClock
-import androidx.documentfile.provider.DocumentFile
-import jp.juggler.util.LogCategory
-import jp.juggler.util.pathFromDocumentUri
-import jp.juggler.util.use
-import jp.juggler.util.waitEventWithTimeout
+import jp.juggler.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
-
+import kotlin.coroutines.suspendCoroutine
 
 object Capture {
     private val log = LogCategory("${App1.tagPrefix}/Capture")
@@ -44,29 +38,31 @@ object Capture {
     }
 
     private lateinit var handler: Handler
-    private lateinit var mpm: MediaProjectionManager
     private lateinit var mediaScannerTracker: MediaScannerTracker
+    private lateinit var mediaProjectionManager: MediaProjectionManager
 
-    private var mediaProjectionState = MediaProjectionState.Off
     private var screenCaptureIntent: Intent? = null
-    private var mMediaProjection: MediaProjection? = null
+    private var mediaProjection: MediaProjection? = null
     private var mediaProjectionAddr = AtomicReference<String?>(null)
+    private var mediaProjectionState = MediaProjectionState.Off
 
-
+    // アプリ起動時に一度だけ実行する
     fun onInitialize(context: Context) {
         log.d("onInitialize")
-        mpm = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         handler = Handler()
         mediaScannerTracker = MediaScannerTracker(context.applicationContext, handler)
+        mediaProjectionManager =
+            context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
 
+    // mediaProjection と screenCaptureIntentを解放する
     fun release(): Boolean {
         log.d("release")
 
-        if (mMediaProjection != null) {
+        if (mediaProjection != null) {
             log.d("MediaProjection close.")
-            mMediaProjection?.stop()
-            mMediaProjection = null
+            mediaProjection?.stop()
+            mediaProjection = null
         }
 
         screenCaptureIntent = null
@@ -85,7 +81,7 @@ object Capture {
 
             MediaProjectionState.Off -> {
                 log.d("createScreenCaptureIntent")
-                val permissionIntent = mpm.createScreenCaptureIntent()
+                val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
                 activity.startActivityForResult(permissionIntent, requestCode)
                 mediaProjectionState = MediaProjectionState.RequestingScreenCaptureIntent
                 false
@@ -99,76 +95,70 @@ object Capture {
         data: Intent?
     ): Boolean {
         log.d("handleScreenCaptureIntentResult")
-        if (resultCode != Activity.RESULT_OK) {
-            log.eToast(activity, false, "permission not granted.")
-            return release()
-        }
-
-        if (data == null) {
-            log.eToast(activity, false, "result data is null.")
-            return release()
-        }
-        screenCaptureIntent = data
-        mediaProjectionState = MediaProjectionState.HasScreenCaptureIntent
-
-        val bundle = data.extras
-        if (bundle != null) {
-            for (key in bundle.keySet()) {
-                val v = bundle.get(key)
-                log.d("bundle[$key]=$v")
-            }
-        }
-
-        return true
-    }
-
-    fun canCapture() = mMediaProjection != null && mediaProjectionAddr.get() != null
-
-    fun updateMediaProjection(context: Context): Boolean {
-        log.d("updateMediaProjection")
-
-        val screenCaptureIntent = this.screenCaptureIntent
-        if (screenCaptureIntent == null) {
-            log.e("screenCaptureIntent is null")
-            return release()
-        }
-
-        // MediaProjectionの取得
-        mMediaProjection?.stop()
-        mMediaProjection = mpm.getMediaProjection(Activity.RESULT_OK, screenCaptureIntent)
-        return when (mMediaProjection) {
-            null -> {
-                log.eToast(context, false, "getMediaProjection() returns null")
+        return when {
+            resultCode != Activity.RESULT_OK -> {
+                log.eToast(activity, false, "permission not granted.")
                 release()
             }
+
+            data == null -> {
+                log.eToast(activity, false, "result data is null.")
+                release()
+            }
+
             else -> {
-                mediaProjectionState = MediaProjectionState.HasMediaProjection
-                mMediaProjection?.registerCallback(
-                    object : MediaProjection.Callback() {
-                        val addr = mMediaProjection.toString()
-
-                        init {
-                            log.d("MediaProjection registerCallback. addr=$addr")
-                            mediaProjectionAddr.set(addr)
-                        }
-
-                        override fun onStop() {
-                            super.onStop()
-                            log.d("MediaProjection onStop. addr=$addr")
-                            mediaProjectionAddr.compareAndSet(addr, null)
-                        }
-                    },
-                    handler
-                )
+                // 得られたインテントはExtrasにBinderProxyオブジェクトを含む。ファイルに保存とかは無理っぽい…
+                screenCaptureIntent = data
+                mediaProjectionState = MediaProjectionState.HasScreenCaptureIntent
                 true
             }
         }
     }
 
+    fun canCapture() =
+        mediaProjection != null && mediaProjectionAddr.get() != null
 
-    suspend fun capture(context: Context, timeClick: Long): String {
-        return CaptureEnv(context, timeClick).capture()
+    // throw error if failed.
+    fun updateMediaProjection() {
+        log.d("updateMediaProjection")
+
+        val screenCaptureIntent = this.screenCaptureIntent
+        if (screenCaptureIntent == null) {
+            release()
+            error("screenCaptureIntent is null")
+        }
+
+        // 以前のMediaProjectionを停止させないとgetMediaProjectionはエラーを返す
+        mediaProjection?.stop()
+
+        // MediaProjectionの取得
+        val mediaProjection =
+            mediaProjectionManager.getMediaProjection(Activity.RESULT_OK, screenCaptureIntent)
+        this.mediaProjection = mediaProjection
+
+        if (mediaProjection == null) {
+            release()
+            error("getMediaProjection() returns null")
+        }
+
+        mediaProjectionState = MediaProjectionState.HasMediaProjection
+        val addr = mediaProjection.toString()
+        mediaProjectionAddr.set(addr)
+        mediaProjection.registerCallback(
+            object : MediaProjection.Callback() {
+                override fun onStop() {
+                    super.onStop()
+                    log.d("MediaProjection onStop. addr=$addr")
+                    mediaProjectionAddr.compareAndSet(addr, null)
+                }
+            },
+            handler
+        )
+        log.d("MediaProjection registerCallback. addr=$addr")
     }
+
+    suspend fun capture(context: Context, timeClick: Long): Uri =
+        CaptureEnv(context, timeClick).capture()
 
     private class CaptureEnv(
         val context: Context,
@@ -184,9 +174,12 @@ object Capture {
             lastTime = SystemClock.elapsedRealtime()
         }
 
-        suspend fun capture(): String {
+        suspend fun capture(): Uri {
 
-            val mediaProjection = mMediaProjection
+            if (!canCapture())
+                updateMediaProjection()
+
+            val mediaProjection = mediaProjection
                 ?: error("mediaProjection is null.")
 
             val dm = context.resources.displayMetrics
@@ -204,39 +197,41 @@ object Capture {
 
                 bench("create imageReader")
 
+                var virtualDisplay: VirtualDisplay? = null
 
-                var virtualDisplay:VirtualDisplay? = null
-                val resumeResult = waitEventWithTimeout<String>(2000L){ cont->
-                     virtualDisplay = mediaProjection.createVirtualDisplay(
-                         App1.tagPrefix,
-                         displayWidth,
-                         displayHeight,
-                         densityDpi,
-                         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                         imageReader.surface,
-                         object:VirtualDisplay.Callback(){
-                             override fun onResumed() {
-                                 super.onResumed()
-                                 log.d("VirtualDisplay onResumed")
-                                 cont.resume("OK")
-                             }
+                val resumeResult = withTimeoutOrNull(2000L) {
+                    suspendCoroutine<String> { cont ->
+                        virtualDisplay = mediaProjection.createVirtualDisplay(
+                            App1.tagPrefix,
+                            displayWidth,
+                            displayHeight,
+                            densityDpi,
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                            imageReader.surface,
+                            object : VirtualDisplay.Callback() {
+                                override fun onResumed() {
+                                    super.onResumed()
+                                    log.d("VirtualDisplay onResumed")
+                                    cont.resume("OK")
+                                }
 
-                             override fun onStopped() {
-                                 super.onStopped()
-                                 log.d("VirtualDisplay onStopped")
-                             }
+                                override fun onStopped() {
+                                    super.onStopped()
+                                    log.d("VirtualDisplay onStopped")
+                                }
 
-                             override fun onPaused() {
-                                 super.onPaused()
-                                 log.d("VirtualDisplay onPaused")
-                             }
-                         },
-                         handler
-                     )
-                     bench("create virtualDisplay")
+                                override fun onPaused() {
+                                    super.onPaused()
+                                    log.d("VirtualDisplay onPaused")
+                                }
+                            },
+                            handler
+                        )
+                        bench("create virtualDisplay")
+                    }
                 }
 
-                bench("waiting virtualDisplay onResume: ${resumeResult ?:  "timeout"}")
+                bench("waiting virtualDisplay onResume: ${resumeResult ?: "timeout"}")
 
                 try {
                     val maxTry = 10
@@ -250,25 +245,27 @@ object Capture {
                         val image = imageReader.acquireLatestImage()
                         if (image == null) {
                             log.w("acquireLatestImage() is null")
+                            // 無限リトライ
                             delay(10L)
                             continue
-                            // 無限リトライ
                         }
+
                         val timeGetImage = SystemClock.elapsedRealtime()
 
                         try {
-                            val rv = withContext(Dispatchers.IO) {
-                                save(context, image)
+                            return withContext(Dispatchers.IO) {
+                                save(image)
+                            }.also {
+                                bench("save OK. shutter delay=${timeGetImage - timeClick}ms")
                             }
-                            bench("save OK. shutter delay=${timeGetImage - timeClick}ms")
-                            return rv
                         } catch (ex: Throwable) {
                             bench("save failed")
                             val errMessage = ex.message
                             if (errMessage?.contains(ERROR_BLANK_IMAGE) == true) {
-                                if (nTry < maxTry) {
-                                    log.e(errMessage)
-                                    ++nTry
+                                // ブランクイメージは異常ではない場合がありうるのでリトライ回数制限あり
+                                if (++nTry <= maxTry) {
+                                    log.w(errMessage)
+                                    delay(10L)
                                     continue
                                 }
                             }
@@ -284,140 +281,97 @@ object Capture {
             }
         }
 
-        private suspend fun save(context: Context, image: Image): String {
+        private suspend fun save(image: Image): Uri {
 
             bench("save start")
 
             val width = image.width
             val height = image.height
             val plane = image.planes[0]
-            val buffer = plane.buffer
-
             val pixelStride = plane.pixelStride
             val rowStride = plane.rowStride
             val rowPadding = rowStride - pixelStride * width
             log.d("size=($width,$height),pixelStride=$pixelStride,rowStride=$rowStride,rowPadding=$rowPadding")
 
-            val bitmap =
-                Bitmap.createBitmap(
-                    width + rowPadding / pixelStride,
-                    height,
-                    Bitmap.Config.ARGB_8888
-                )
-                    ?: error("bitmap creation failed.")
-
-            try {
-                bitmap.copyPixelsFromBuffer(buffer)
+            return Bitmap.createBitmap(
+                width + rowPadding / pixelStride,
+                height,
+                Bitmap.Config.ARGB_8888
+            )?.use { bitmap ->
+                bitmap.copyPixelsFromBuffer(plane.buffer)
 
                 bench("copyPixelsFromBuffer")
 
-                createResizedBitmap(bitmap).use { smallBitmap ->
+                createResizedBitmap(bitmap, 256, 256).use { smallBitmap ->
                     bench("createResizedBitmap")
-                    checkBlank(smallBitmap)
+                    smallBitmap.checkBlank()
                     bench("checkBlank")
                 }
 
                 val mimeType: String
                 val compressFormat: Bitmap.CompressFormat
-                val compressQuality: Int
-                val fileExtension: String
+                val compressQuality = 100
                 when {
                     Pref.bpSavePng(App1.pref) -> {
                         mimeType = "image/png"
                         compressFormat = Bitmap.CompressFormat.PNG
-                        compressQuality = 100
-                        fileExtension = "png"
                     }
                     else -> {
                         mimeType = "image/jpeg"
                         compressFormat = Bitmap.CompressFormat.JPEG
-                        compressQuality = 100
-                        fileExtension = "jpg"
                     }
                 }
 
-                if (Build.VERSION.SDK_INT >= API_USE_DOCUMENT) {
-                    val saveTreeUri = Uri.parse(Pref.spSaveTreeUri(App1.pref))
-                    val dir = DocumentFile.fromTreeUri(context, saveTreeUri)
-                        ?: error("can't get save directory.")
-                    val baseName = generateBasename()
-                    val itemUri = generateFile(dir, baseName,mimeType).uri
-                    context.contentResolver.openOutputStream(itemUri).use{outputStream->
-                        bench("before compress")
-                        bitmap.compress(compressFormat, compressQuality, outputStream)
+                generateDocument(
+                    context,
+                    Uri.parse(Pref.spSaveTreeUri(App1.pref)),
+                    generateBasename(),
+                    mimeType
+                ).also { itemUri ->
+
+                    try {
+                        context.contentResolver.openOutputStream(itemUri).use { outputStream ->
+                            bench("before compress")
+                            bitmap.compress(compressFormat, compressQuality, outputStream)
+                            bench("compress and write to $itemUri")
+                        }
+                    }catch(ex:Throwable){
+                        try {
+                            if(!deleteDocument(context,itemUri))
+                                log.e("deleteDocument returns false.")
+                        }catch(ex2:Throwable) {
+                            log.e(ex2,"deleteDocument failed.")
+                        }
+                        throw ex
                     }
-                    bench("compress and write to $itemUri")
 
-                    val path = pathFromDocumentUri(context,itemUri.toString())
-                    if( path != null){
-                        val contentUri = mediaScannerTracker.scanAndWait(path,mimeType)
-                        bench("media scan: $contentUri")
+                    val path = pathFromDocumentUri(context, itemUri)
+                        ?: error("can't get path for $itemUri")
+
+                    mediaScannerTracker.scanAndWait(path, mimeType)?.let { mediaUri ->
+                        bench("media scan: $mediaUri")
                     }
 
-                    return itemUri.toString()
-
-                } else {
-                    val dir = generateDir()
-                    val displayName = generateDisplayName(dir, fileExtension)
-                    val file = generateFile(dir, displayName, fileExtension)
-                    val path = file.absolutePath
-
-                    // BufferedOutputStream
-                    FileOutputStream(file).use { outputStream ->
-                        bitmap.compress(compressFormat, compressQuality, outputStream)
-                    }
-                    bench("compress and write to $path")
-
-                    val contentUri = mediaScannerTracker.scanAndWait(path, mimeType)
-                    bench("media scan: $contentUri")
-
-                    return path
                 }
-
-            } finally {
-                bitmap.recycle()
-            }
+            } ?: error("bitmap creation failed.")
         }
-
     }
 
-
-    private fun checkBlank(bitmap: Bitmap) {
-        val pixels = IntArray(bitmap.width * bitmap.height)
-        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-
+    private fun Bitmap.checkBlank() {
+        val pixels = IntArray(width * height)
+        getPixels(pixels, 0, width, 0, 0, width, height)
         var preColor: Int? = null
         for (i in pixels) {
             val color = i or Color.BLACK
-            if (preColor == color) {
+            if (color == preColor) {
                 continue
-            } else if (preColor == null) {
+            } else if (null == preColor) {
                 preColor = color
             } else {
                 return // not blank image
             }
         }
         error(ERROR_BLANK_IMAGE)
-    }
-
-    private fun createResizedBitmap(src: Bitmap): Bitmap {
-        val srcW = src.width
-        val srcH = src.height
-        val dstSize = 256
-        val dst = Bitmap.createBitmap(dstSize, dstSize, Bitmap.Config.ARGB_8888)
-            ?: error("createBitmap returns null")
-
-        val canvas = Canvas(dst)
-        val paint = Paint()
-        paint.isFilterBitmap = true
-        val matrix = Matrix()
-        matrix.postScale(
-            (dstSize.toFloat() + 0.999f) / srcW.toFloat(),
-            (dstSize.toFloat() + 0.999f) / srcH.toFloat()
-        )
-        canvas.drawBitmap(src, matrix, paint)
-        return dst
-
     }
 
     private fun generateBasename(): String {
@@ -432,58 +386,4 @@ object Capture {
             , cal.get(Calendar.SECOND)
         )
     }
-
-    @Suppress("DEPRECATION")
-    private fun generateDir(): File {
-        var dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-            ?: error("shared storage is not currently available.")
-
-        if (!dir.mkdir() && !dir.isDirectory) error("not a directory: $dir")
-
-        dir = File(dir, App1.tagPrefix)
-        if (!dir.mkdir() && !dir.isDirectory) error("not a directory: $dir")
-
-        return dir
-    }
-
-    private fun generateDisplayName(dir: File, fileException: String): String {
-        val namePrefix = generateBasename()
-        var count = 1
-        var displayName: String
-        do {
-            displayName = if (count == 1) {
-                namePrefix
-            } else {
-                "$namePrefix-$count"
-            }
-            ++count
-
-        } while (generateFile(dir, displayName, fileException).exists())
-
-        return displayName
-    }
-
-    private fun generateFile(dir: File, displayName: String, fileException: String) =
-        File(dir, "$displayName.$fileException")
-
-    @TargetApi(29)
-    fun generateFile(dir: DocumentFile, baseName: String, mimeType: String): DocumentFile {
-        val duplicates =
-            dir.listFiles().filter { it.name?.contains(baseName) == true }.map { it.name }.toSet()
-
-        var count = 1
-        var displayName: String
-        do {
-            displayName = if (count == 1) {
-                baseName
-            } else {
-                "$baseName-$count"
-            }
-            ++count
-
-        } while (duplicates.contains(displayName))
-
-        return dir.createFile(mimeType, displayName) ?: error("DocumentFile.createFile() returns null.")
-    }
-
 }

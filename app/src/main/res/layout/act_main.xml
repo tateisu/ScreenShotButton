@@ -45,12 +45,14 @@
 
         <TextView
             style="@style/setting_caption"
-            android:text="@string/overlay_button_size" />
+            android:text="@string/overlay_button_size"
+            android:labelFor="@+id/etButtonSize"/>
 
         <EditText
             android:id="@+id/etButtonSize"
             style="@style/setting_item"
-            android:inputType="number" />
+            android:inputType="number"
+            android:importantForAutofill="no"/>
 
         <TextView
             android:id="@+id/tvButtonSizeError"

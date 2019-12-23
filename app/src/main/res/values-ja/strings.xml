@@ -1,22 +1,20 @@
 <resources>
-    <string name="capture">撮影</string>
-    <string name="captured_image">撮影した画像</string>
     <string name="ok">OK</string>
     <string name="cancel">キャンセル</string>
     <string name="start">開始</string>
     <string name="stop">停止</string>
     <string name="capture_standby">撮影待機</string>
-    <string name="capture_standby_description">画面にオーバーレイボタンを表示しています</string>
+    <string name="capture_standby_description">画面に撮影ボタンを表示しています</string>
     <string name="share">共有</string>
-    <string name="overlay_button_size">オーバーレイボタンのサイズ (単位:dp。ボタンを表示しなおすと反映されます)</string>
+    <string name="overlay_button_size">撮影ボタンのサイズ (単位:dp。ボタンを表示しなおすと反映されます)</string>
     <string name="overlay_service">撮影ボタンを表示</string>
     <string name="show_post_view_after_capture">撮影後にポストビューを表示する</string>
     <string name="save_png">PNG形式で保存 (すごく遅い)</string>
     <string name="button_size_error"><![CDATA[1以上の整数を入力してください]]></string>
     <string name="please_allow_overlay_permission">他のアプリの上に表示する権限を許可してください。\n\nその後にこのアプリの画面に戻ってきてください。</string>
     <string name="please_select_save_folder">保存先のフォルダを選択してください。\n\n全てのストレージを見るには右上のメニューで「内部ストレージを表示」を選んでから左上のメニューを開いてください。\n\nまた、右上のメニューで新しいフォルダを作成することもできます。</string>
-    <string name="save_folder">保存フォルダ (Android 7+)</string>
+    <string name="save_folder">保存フォルダ</string>
     <string name="edit">編集</string>
     <string name="not_selected">未選択</string>
-    <string name="overlay_button_desc">オーバーレイボタンをドラッグして移動できます。\nAndroid 10+のシステムジェスチャーナビゲーションが有効な場合、画面端のボタンの反応が悪い場合があります。</string>
+    <string name="overlay_button_desc">撮影ボタンはドラッグで移動できます。\nAndroid 10+のシステムジェスチャーナビゲーションが有効な場合、ボタンを画面端に置くと反応が悪い場合があります。</string>
 </resources>

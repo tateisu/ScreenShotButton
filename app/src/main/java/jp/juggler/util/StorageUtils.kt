@@ -1,18 +1,29 @@
 package jp.juggler.util
 
+import android.annotation.SuppressLint
 import android.annotation.TargetApi
+import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
-import jp.juggler.screenshotbutton.MediaInfo
+import android.provider.DocumentsContract
+import android.provider.MediaStore
+import jp.juggler.screenshotbutton.API_STORAGE_VOLUME
 
 @Suppress("unused")
 private val log = LogCategory("StorageUtils")
 
-fun isExternalStorageDocument(uri: Uri): Boolean {
-    return "com.android.externalstorage.documents" == uri.authority
+private fun Cursor.getStringOrNull(idx: Int) = when {
+    isNull(idx) -> null
+    else -> getString(idx)
 }
+
+fun isExternalStorageDocument(uri: Uri) =
+    "com.android.externalstorage.documents" == uri.authority
 
 private const val PATH_TREE = "tree"
 private const val PATH_DOCUMENT = "document"
@@ -39,40 +50,151 @@ private fun getDocumentId(documentUri: Uri): String {
     error("getDocumentId() can'f find ID from $documentUri")
 }
 
-private fun StorageVolume.getPathCompat(): String?
-    =javaClass.getMethod("getPath").invoke(this) as? String
-// API 29 だとグレーリストに入っていた
-// Accessing hidden method Landroid/os/storage/StorageVolume;->getPath()Ljava/lang/String; (greylist, reflection, allowed)
 
-// throw error if volume is not found.
 @TargetApi(24)
-fun pathFromDocumentUri(context: Context, src:String): String? {
+private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): String =
+    when (uuid) {
+        "primary" -> storageManager.primaryStorageVolume
+        else -> storageManager.storageVolumes.find { it.uuid == uuid }
+    }?.let {
+        // API 29 だとグレーリストに入っていた
+        // Accessing hidden method Landroid/os/storage/StorageVolume;->getPath()Ljava/lang/String; (greylist, reflection, allowed)
+        StorageVolume::class.java.getMethod("getPath").invoke(it) as? String
+    } ?: error("can't find volume for uuid $uuid")
 
+@TargetApi(21)
+private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): String =
+    when (uuid) {
+
+        "primary" -> {
+            @Suppress("DEPRECATION")
+            Environment.getExternalStorageDirectory().toString()
+        }
+
+        else -> {
+            val volumes = storageManager.javaClass.getMethod("getVolumeList").invoke(storageManager)
+                    as? Array<*> ?: error("storageManager.getVolumeList() failed.")
+            if (volumes.isEmpty()) error("storageManager.getVolumeList() is empty.")
+            val volumeClass = volumes[0]?.javaClass ?: error("volumes[0].javaClass is null.")
+            val getUuid = volumeClass.getMethod("getUuid")
+            val volume = volumes.find {
+                it ?: return@find false
+                uuid == getUuid.invoke(it) as? String
+            } ?: "missing volume for uuid $uuid"
+            val state = volumeClass.getMethod("getState").invoke(volume) as? String
+            if (state != "mounted") error("uuid is not mounted. $state")
+
+            (volumeClass.getMethod("getPath").invoke(volume) as? String).notEmpty()
+                ?: error("volume.getPath() failed.")
+        }
+    }
+
+fun pathFromDocumentUri(context: Context, uri: Uri): String? {
     try {
-        if(src.startsWith("/")) return src
-        val uri = Uri.parse(src)
-        if( uri.authority=="file") return uri.path
+        when {
 
-        if (isExternalStorageDocument(uri)) {
-            val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
-            if (split.size >= 2) {
-                val storageManager = context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-                val volume = when (val uuid = split[0]) {
-                    "primary" -> storageManager.primaryStorageVolume // API 24
-                    else ->
-                        storageManager.storageVolumes.find { it.uuid == uuid }
-                            ?: error("can't find volume for uuid $uuid")
+            uri.authority == "file" -> return uri.path
+
+            isExternalStorageDocument(uri) -> {
+                val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
+                if (split.size >= 2) {
+                    val storageManager =
+                        context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+                    val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
+                        getVolumePathApi24(storageManager, split[0])
+                    } else {
+                        getVolumePathApi21(storageManager, split[0])
+                    }
+                    return "$volumePath/${split[1]}"
                 }
-                return "${volume.getPathCompat()}/${split[1]}"
             }
         }
 
-        return MediaInfo.find(context,src)?.path
+        return findMedia(context, uri)?.path
     } catch (ex: Throwable) {
         log.eToast(context, ex, "pathFromDocumentUri failed.")
         return null
     }
 }
 
+class FindMediaResult(val uri: Uri, val mimeType: String?, val path: String?)
 
+@SuppressLint("Recycle")
+@Suppress("DEPRECATION")
+fun findMedia(context: Context, uri: Uri): FindMediaResult? {
+    return try {
+        context.contentResolver.query(
+            uri,
+            null,
+            null,
+            null,
+            null
+        )
+            ?.use { cursor ->
+                val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+                val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
+                val idxPath = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                if (cursor.moveToNext()) {
+                    FindMediaResult(
+                        ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            cursor.getLong(idxId)
+                        ),
+                        cursor.getStringOrNull(idxMimeType),
+                        cursor.getStringOrNull(idxPath)
+                    )
+                } else {
+                    log.eToast(context, false, "can't find content uri.")
+                    null
+                }
+            }
+    } catch (ex: Throwable) {
+        log.eToast(context, ex, "findMedia() failed. $uri")
+        null
+    }
+}
 
+fun generateDocument(
+    context: Context,
+    treeUriArg: Uri,
+    baseName: String,
+    mimeType: String
+): Uri {
+    val treeUri = DocumentsContract.buildDocumentUriUsingTree(
+        treeUriArg,
+        if (DocumentsContract.isDocumentUri(context, treeUriArg)) {
+            DocumentsContract.getDocumentId(treeUriArg)
+                ?: error("getTreeDocumentId returns null.")
+        } else {
+            DocumentsContract.getTreeDocumentId(treeUriArg)
+                ?: error("getTreeDocumentId returns null.")
+        }
+    ) ?: error("buildDocumentUriUsingTree returns null.")
+
+    return DocumentsContract.createDocument(context.contentResolver, treeUri, mimeType, baseName)
+        ?: error("createDocument returns null.")
+}
+
+fun deleteDocument(
+    context: Context,
+    itemUri: Uri
+): Boolean{
+    // 削除に成功したら真
+    if(DocumentsContract.deleteDocument(context.contentResolver, itemUri))
+        return true
+
+    // 削除できない場合、存在しないなら真
+    context.contentResolver.query(
+        itemUri,
+        arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+        null,
+        null,
+        null
+    )?.use {
+        if(it.count==0) return true
+    }
+
+    // 削除できないが存在はしている…
+    log.w("deleteDocument: can't delete, but exist… $itemUri")
+    return false
+}

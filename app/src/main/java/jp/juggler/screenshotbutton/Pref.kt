@@ -9,7 +9,7 @@ abstract class BasePref<T>(val key : String) {
 
     init {
         if( Pref.map[key] != null )
-            error("Preference key duplicate: ${key}")
+            error("Preference key duplicate: $key")
         else
             @Suppress("LeakingThis")
             Pref.map[key] = this
@@ -31,6 +31,8 @@ abstract class BasePref<T>(val key : String) {
     }
 
 }
+
+@Suppress("unused")
 fun SharedPreferences.Editor.remove(item : BasePref<*>) : SharedPreferences.Editor {
     item.remove(this)
     return this
@@ -64,7 +66,7 @@ class BooleanPref(
     }
 }
 
-class IntPref(key : String, val defVal : Int) : BasePref<Int>(key) {
+class IntPref(key : String, @Suppress("MemberVisibilityCanBePrivate") val defVal : Int) : BasePref<Int>(key) {
 
     override operator fun invoke(pref : SharedPreferences) : Int {
         return pref.getInt(key, defVal)
@@ -109,7 +111,7 @@ class FloatPref(key : String, private val defVal : Float) : BasePref<Float>(key)
 
 class StringPref(
     key : String,
-    val defVal : String,
+    @Suppress("MemberVisibilityCanBePrivate") val defVal : String,
     val skipImport : Boolean = false
 ) : BasePref<String>(key) {
 
@@ -151,7 +153,7 @@ fun SharedPreferences.Editor.put(item : FloatPref, v : Float) : SharedPreference
 
 object Pref {
 
-    fun pref(context : Context) =
+    fun pref(context : Context) :SharedPreferences =
         context.getSharedPreferences("Pref",Context.MODE_PRIVATE)
 
 

@@ -6,6 +6,7 @@ import jp.juggler.screenshotbutton.R
 
 import java.util.ArrayList
 
+@Suppress("unused")
 class ActionsDialog {
 
     private val list = ArrayList<Action>()

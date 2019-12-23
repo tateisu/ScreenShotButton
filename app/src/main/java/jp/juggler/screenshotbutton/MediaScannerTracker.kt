@@ -7,9 +7,10 @@ import android.net.Uri
 import android.os.Handler
 import android.os.SystemClock
 import jp.juggler.util.LogCategory
-import jp.juggler.util.waitEventWithTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class MediaScannerTracker(
     context: Context,
@@ -131,13 +132,21 @@ class MediaScannerTracker(
         }
     }
 
-    private fun addFile(item: Item) {
-        queue.add(item)
+    private fun addFile(
+        path: String,
+        mimeType: String,
+        onComplete: (Uri) -> Unit
+    ) {
+        queue.add(Item(path, mimeType, onComplete))
         handler.post(queueReader)
     }
 
     suspend fun scanAndWait(path: String, mimeType: String): Uri? =
-        waitEventWithTimeout<Uri>(10000L) { cont ->
-            addFile(Item(path, mimeType) { cont.resume(it) })
+        withTimeoutOrNull(10000L) {
+            suspendCoroutine<Uri> { cont ->
+                addFile(path, mimeType) {
+                    cont.resume(it)
+                }
+            }
         }
 }

@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
+        android:name=".App1"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -19,8 +20,7 @@
         <activity
             android:name=".ActMain"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize|stateAlwaysHidden"
-            >
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -30,17 +30,15 @@
 
         <activity
             android:name=".ActViewer"
-            android:theme="@style/AppTheme.Viewer"
             android:launchMode="singleTop"
             android:taskAffinity="jp.juggler.screenshotbutton.viewer"
-            />
+            android:theme="@style/AppTheme.Viewer" />
 
         <service
             android:name=".MyService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection"
-            tools:targetApi="q"
-            />
+            tools:targetApi="q" />
 
         <receiver android:name=".MyReceiver" />
     </application>

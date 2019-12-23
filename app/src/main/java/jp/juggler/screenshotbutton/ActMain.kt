@@ -1,11 +1,8 @@
 package jp.juggler.screenshotbutton
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.annotation.TargetApi
 import android.app.Dialog
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,12 +16,8 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import jp.juggler.util.LogCategory
-import jp.juggler.util.dp2px
-import jp.juggler.util.pathFromDocumentUri
-import jp.juggler.util.vg
+import jp.juggler.util.*
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -34,16 +27,9 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     companion object {
         private val log = LogCategory("${App1.tagPrefix}/ActMain")
 
-        private const val PERMISSION_REQUEST_EXTERNAL_STORAGE = 1
-
         private const val REQUEST_CODE_SCREEN_CAPTURE = 1
         private const val REQUEST_CODE_OVERLAY = 2
         private const val REQUEST_CODE_DOCUMENT_TREE = 3
-
-        private val requiredPermissions = arrayOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
 
         private var refActivity: WeakReference<ActMain>? = null
 
@@ -93,38 +79,24 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == PERMISSION_REQUEST_EXTERNAL_STORAGE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                dispatch()
-            }
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
     private var timeStartButtonTapped = 0L
 
     override fun onClick(v: View?) {
+        timeStartButtonTapped = 0L
         when (v?.id) {
-            R.id.btnStop -> {
-                timeStartButtonTapped = 0L
-                stopService(Intent(this, MyService::class.java))
-            }
+            R.id.btnSaveFolder ->
+                openSaveTreeUriChooser()
 
+            R.id.btnStop ->
+                stopService(Intent(this, MyService::class.java))
 
             R.id.btnStart -> {
                 timeStartButtonTapped = SystemClock.elapsedRealtime()
                 dispatch()
             }
-
-            R.id.btnSaveFolder->
-                openSaveTreeUriChooser()
         }
     }
+
     /////////////////////////////////////////
 
     private fun initUI() {
@@ -143,7 +115,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         btnStop = findViewById(R.id.btnStop)
         btnSaveFolder = findViewById(R.id.btnSaveFolder)
 
-        arrayOf(btnStart,btnStop,btnSaveFolder).forEach {
+        arrayOf(btnStart, btnStop, btnSaveFolder).forEach {
             it.setOnClickListener(this)
         }
 
@@ -177,27 +149,14 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         })
 
         tvSaveFolder = findViewById(R.id.tvSaveFolder)
-
-
-
     }
 
-    private fun showSaveFolder(){
-        if( Build.VERSION.SDK_INT >= API_USE_DOCUMENT) {
-            val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
-            val sv = if (saveTreeUri.isEmpty()) {
-                null
-            } else {
-                pathFromDocumentUri(this,saveTreeUri)
-            }
-            if (sv == null) {
-                tvSaveFolder.setText(R.string.not_selected)
-            } else {
-                tvSaveFolder.text = sv
-            }
-        }else{
-            btnSaveFolder.isEnabled = false
-        }
+    private fun showSaveFolder() {
+
+        tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
+            .notEmpty()
+            ?.let { pathFromDocumentUri(this, Uri.parse(it)) }
+            ?: getString(R.string.not_selected)
     }
 
     // サービスからも呼ばれる
@@ -215,13 +174,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private fun dispatch() {
         if (!prepareOverlay()) return
 
-        if (Build.VERSION.SDK_INT >= API_USE_DOCUMENT) {
-            if (!prepareSaveTreeUri()) return
-        } else {
-            // 29未満は書き込み権限を得れば普通になんとかできる
-            if (!prepareWritePermission()) return
-        }
-
+        if (!prepareSaveTreeUri()) return
 
         if (timeStartButtonTapped > 0L) {
 
@@ -243,28 +196,10 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         lastDialog = this.create().apply { show() }
     }
 
-    @TargetApi(24)
-    private fun prepareSaveTreeUri(): Boolean {
-        val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
-        val uriPermission =
-            contentResolver.persistedUriPermissions.find { it.uri?.toString() == saveTreeUri }
-        if (uriPermission != null ) return true
-
-        AlertDialog.Builder(this)
-            .setMessage(R.string.please_select_save_folder)
-            .setPositiveButton(R.string.ok) { _, _ ->
-                openSaveTreeUriChooser()
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .showEx()
-
-        return false
-    }
-
-    private fun openSaveTreeUriChooser(){
+    private fun openSaveTreeUriChooser() {
         startActivityForResult(
             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                if (Build.VERSION.SDK_INT >= 26 ) {
+                if (Build.VERSION.SDK_INT >= API_EXTRA_INITIAL_URI) {
                     val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
                     if (saveTreeUri.isNotEmpty()) {
                         putExtra(
@@ -278,6 +213,22 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         )
     }
 
+    private fun prepareSaveTreeUri(): Boolean {
+        val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
+        val uriPermission =
+            contentResolver.persistedUriPermissions.find { it.uri?.toString() == saveTreeUri }
+        if (uriPermission != null) return true
+
+        AlertDialog.Builder(this)
+            .setMessage(R.string.please_select_save_folder)
+            .setPositiveButton(R.string.ok) { _, _ ->
+                openSaveTreeUriChooser()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .showEx()
+
+        return false
+    }
 
     private fun handleSaveTreeUriResult(resultCode: Int, data: Intent?): Boolean {
         try {
@@ -298,22 +249,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return false
     }
 
-
-    private fun prepareWritePermission(): Boolean {
-        if (PackageManager.PERMISSION_GRANTED ==
-            ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        ) return true
-
-        ActivityCompat.requestPermissions(
-            this,
-            requiredPermissions,
-            PERMISSION_REQUEST_EXTERNAL_STORAGE
-        )
-        return false
-    }
-
     private fun canOverlay() =
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (Build.VERSION.SDK_INT >= API_OVERLAY_PERMISSION_CHECK) {
             Settings.canDrawOverlays(this)
         } else {
             true

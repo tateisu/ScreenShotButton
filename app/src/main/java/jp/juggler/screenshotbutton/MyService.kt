@@ -27,35 +27,22 @@ import kotlin.math.max
 class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchListener {
 
     companion object {
+        private val log = LogCategory("${App1.tagPrefix}/MyService")
+
         private var refService: WeakReference<MyService>? = null
 
         fun getService() = refService?.get()
-
-        private val log = LogCategory("${App1.tagPrefix}/MyService")
     }
 
-    private val notificationManager by
-    lazy { getSystemService(NOTIFICATION_SERVICE) as NotificationManager }
+    private val context = this
 
-    private val windowManager by
-    lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
-
-    private val layoutInflater by
-    lazy { LayoutInflater.from(this) }
-
-    private val viewRoot by
-    lazy { layoutInflater.inflate(R.layout.service_overlay, null) }
-
-
-    private lateinit var serviceJob: Job
-
-    override val coroutineContext: CoroutineContext
-        get() = Dispatchers.Main + serviceJob
-
-    private lateinit var layoutParam: WindowManager.LayoutParams
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var windowManager: WindowManager
 
     private lateinit var btnCamera: MyImageButton
-
+    private lateinit var layoutParam: WindowManager.LayoutParams
+    private lateinit var serviceJob: Job
+    private lateinit var viewRoot: View
 
     private var startLpX = 0
     private var startLpY = 0
@@ -67,13 +54,16 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     private var maxY = 0
     private var buttonSize = 0
 
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + serviceJob
+
     override fun onBind(intent: Intent): IBinder? = null
 
     override fun onStart(intent: Intent, startId: Int) {
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -81,58 +71,17 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         stopSelf()
     }
 
-    private fun createRunningNotification(): Notification {
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            // Create the NotificationChannel
-            notificationManager.createNotificationChannel(
-                NotificationChannel(
-                    NOTIFICATION_CHANNEL_RUNNING,
-                    getString(R.string.capture_standby),
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = getString(R.string.capture_standby_description)
-                }
-            )
-        }
-
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_RUNNING)
-            .setSmallIcon(R.drawable.notification_icon1)
-            .setContentTitle(getString(R.string.capture_standby))
-            .setContentText(getString(R.string.capture_standby_description))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    PI_CODE_RUNNING_TAP,
-                    Intent(this, ActMain::class.java)
-                        .apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        },
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            )
-            .setDeleteIntent(
-                PendingIntent.getBroadcast(
-                    this,
-                    PI_CODE_RUNNING_DELETE,
-                    Intent(this, MyReceiver::class.java)
-                        .apply { action = MyReceiver.ACTION_RUNNING_DELETE },
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-
-            )
-            .build()
-    }
-
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
-        refService = WeakReference(this)
-        ActMain.getActivity()?.showButton()
-        super.onCreate()
-        App1.prepareAppState(this)
         serviceJob = Job()
+        refService = WeakReference(this)
+
+        super.onCreate()
+        App1.prepareAppState(context)
+
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        viewRoot = LayoutInflater.from(context).inflate(R.layout.service_overlay, null)
 
         startForeground(NOTIFICATION_ID_RUNNING, createRunningNotification())
 
@@ -158,7 +107,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         layoutParam = WindowManager.LayoutParams(
             buttonSize,
             buttonSize,
-            if (Build.VERSION.SDK_INT >= 26) {
+            if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 @Suppress("DEPRECATION")
@@ -176,7 +125,15 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         btnCamera.windowLayoutParams = layoutParam
         windowManager.addView(viewRoot, layoutParam)
 
-        if (!Capture.updateMediaProjection(this)) stopSelf()
+        try {
+            Capture.updateMediaProjection()
+        } catch (ex: Throwable) {
+            log.eToast(this, ex, "updateMediaProjection failed.")
+            stopSelf()
+            return
+        }
+
+        ActMain.getActivity()?.showButton()
     }
 
     override fun onDestroy() {
@@ -191,7 +148,58 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        if (!Capture.updateMediaProjection(this)) stopSelf()
+        try {
+            Capture.updateMediaProjection()
+        } catch (ex: Throwable) {
+            log.eToast(this, ex, "updateMediaProjection failed.")
+            stopSelf()
+        }
+    }
+
+    //////////////////////////////////////////////
+
+    private fun createRunningNotification(): Notification {
+
+        if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
+            // Create the NotificationChannel
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_RUNNING,
+                    getString(R.string.capture_standby),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = getString(R.string.capture_standby_description)
+                }
+            )
+        }
+
+        return NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_RUNNING)
+            .setSmallIcon(R.drawable.notification_icon1)
+            .setContentTitle(getString(R.string.capture_standby))
+            .setContentText(getString(R.string.capture_standby_description))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context,
+                    PI_CODE_RUNNING_TAP,
+                    Intent(context, ActMain::class.java)
+                        .apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        },
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+            .setDeleteIntent(
+                PendingIntent.getBroadcast(
+                    context,
+                    PI_CODE_RUNNING_DELETE,
+                    Intent(context, MyReceiver::class.java)
+                        .apply { action = MyReceiver.ACTION_RUNNING_DELETE },
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+            .build()
     }
 
     //////////////////////////////////////////////
@@ -272,30 +280,24 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     override fun onClick(v: View?) {
         val timeClick = SystemClock.elapsedRealtime()
+
         when (v?.id) {
-            R.id.btnCamera -> {
-                launch {
-                    try {
-                        if (!Capture.canCapture()) {
-                            if (!Capture.updateMediaProjection(this@MyService)) return@launch
-                        }
+            R.id.btnCamera -> launch {
+                try {
+                    btnCamera.visibility = View.GONE
 
-                        btnCamera.visibility = View.GONE
+                    val uri = Capture.capture(context, timeClick)
 
-                        val pathOrUri = Capture.capture(this@MyService, timeClick)
+                    if (Pref.bpShowPostView(App1.pref))
+                        ActViewer.open(context, uri)
 
-                        if (Pref.bpShowPostView(App1.pref)) {
-                            ActViewer.open(this@MyService, pathOrUri)
-                        }
-                    } catch (ex: Throwable) {
-                        log.eToast(this@MyService, ex, "capture failed.")
-                    } finally {
-                        btnCamera.visibility = View.VISIBLE
-                        setButtonDrawable(true)
-                    }
+                } catch (ex: Throwable) {
+                    log.eToast(context, ex, "capture failed.")
+                } finally {
+                    btnCamera.visibility = View.VISIBLE
+                    setButtonDrawable(true)
                 }
             }
         }
     }
-
 }
