@@ -90,16 +90,17 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         btnCamera.setOnTouchListener(this)
 
         layoutParam = WindowManager.LayoutParams(
-            0, // 後で上書きされる
+            0, // 後で上書きする。 loadButtonPosition()
             0,
             if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY
+                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    // WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
