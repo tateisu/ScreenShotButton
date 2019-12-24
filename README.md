@@ -1,6 +1,5 @@
 # ScreenShotButton
-Android app that shows overlay screenshot button
-
+Android app that shows overlay screen shot button
 
 ### 作成した動機
 ソシャゲのスクショを撮るときに、不器用なので電源＋音量下ボタンの同時押しに失敗して画面が先に進んでしまうので、撮影ボタンを画面上にオーバーレイ表示するタイプのスクリーンショット撮影ソフトを使っていました。しかしとあるタブレットで「撮影できたけど内容がブランクイメージだった」が発生します。結果をすぐに表示するタイプの撮影アプリで手動リトライしてたんですが、あまりにも頻出するので手間を省くためにアプリを自分で書いてみました。
@@ -11,12 +10,18 @@ Android app that shows overlay screenshot button
 - MediaProjectionを使った画面キャプチャで起こりがちな「取得できたけど内容がブランクイメージだった」を検出してリトライします。
 
 ### 動作確認済み機種
-- Huawei MediaPad M5 Pro(Android 9)
+- API 29 Android 10 Essential PH-1 Phone 
+- API 28 Android 9 Huawei CMR-W19 MediaPad M5 Pro 
+- API 27 Android 8.1 Google bullhead Nexus 5X (2015,Googleストア版) 
+- API 26 Android 8.0 Sony SO-02J Xperia X Compact (docomo) 
+- API 25 Android 7.1.1 Kyocera 602KC Digno G 
+- API 24 Android 7.0 Huawei HDN-W09 MediaPad M3 Lite 10 wp 
+- API 23 Android 6.0.1 Sony SO-02G Xperia Z3 compact (docomo) 
+- API 22 Android 5.1 Aubee CP-B43-Ab elm. 
+- API 21 Android 5.0.2 LGE LGL24 isai FL
 
 ### 欠点
-- 保存フォルダを指定できません。Android 11で制限がキツくなるのが分かってるのでやる気がない。
 - 静止画しか撮れません。
-- Android 10(Q)での動作は確認していません。ストレージ関連の制限がキツくなったので多分なにか問題があるでしょう。
 - 負荷を軽くするため、遅延はやや大きめです。リトライが主眼なのでまあ仕方ないね
 
 ## スクリーンショット
