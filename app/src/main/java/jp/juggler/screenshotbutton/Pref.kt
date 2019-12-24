@@ -160,15 +160,13 @@ object Pref {
     // キー名と設定項目のマップ。インポートやアプリ設定で使う
     val map = HashMap<String, BasePref<*>>()
 
-
-
     val fpCameraButtonX = FloatPref(
         "cameraButtonX",
-        0f
+        70f
     )
     val fpCameraButtonY = FloatPref(
         "cameraButtonY",
-        0f
+        70f
     )
     val ipCameraButtonSize = IntPref(
         "cameraButtonSize",

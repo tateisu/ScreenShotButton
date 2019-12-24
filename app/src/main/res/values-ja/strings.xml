@@ -11,10 +11,11 @@
     <string name="show_post_view_after_capture">撮影後にポストビューを表示する</string>
     <string name="save_png">PNG形式で保存 (すごく遅い)</string>
     <string name="button_size_error"><![CDATA[1以上の整数を入力してください]]></string>
-    <string name="please_allow_overlay_permission">他のアプリの上に表示する権限を許可してください。\n\nその後にこのアプリの画面に戻ってきてください。</string>
+    <string name="please_allow_overlay_permission">他のアプリの上に表示する権限を許可してください。\nその後、このアプリの画面に戻ってきてください。</string>
     <string name="please_select_save_folder">保存先のフォルダを選択してください。\n\n全てのストレージを見るには右上のメニューで「内部ストレージを表示」を選んでから左上のメニューを開いてください。\n\nまた、右上のメニューで新しいフォルダを作成することもできます。</string>
     <string name="save_folder">保存フォルダ</string>
     <string name="edit">編集</string>
     <string name="not_selected">未選択</string>
     <string name="overlay_button_desc">撮影ボタンはドラッグで移動できます。\nAndroid 10+のシステムジェスチャーナビゲーションが有効な場合、ボタンを画面端に置くと反応が悪い場合があります。</string>
+    <string name="reset_position">位置を初期化</string>
 </resources>

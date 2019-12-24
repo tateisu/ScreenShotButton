@@ -2,6 +2,7 @@ package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -20,6 +21,12 @@ import androidx.core.content.ContextCompat
 import jp.juggler.util.*
 import java.lang.ref.WeakReference
 import kotlin.math.max
+import android.graphics.PixelFormat
+import android.view.WindowManager
+import android.content.Context.WINDOW_SERVICE
+import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.app.ComponentActivity.ExtraData
+import android.icu.lang.UCharacter.GraphemeClusterBreak.T
 
 
 class ActMain : AppCompatActivity(), View.OnClickListener {
@@ -35,51 +42,53 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         fun getActivity() = refActivity?.get()
 
+        private fun isServiceAlive(): Boolean =
+            MyService.getService() != null
     }
 
-    private lateinit var btnStart: Button
-    private lateinit var btnStop: Button
-    private lateinit var etButtonSize: EditText
+    private lateinit var btnStartStop: Button
     private lateinit var tvButtonSizeError: TextView
-    private lateinit var swSavePng: Switch
-    private lateinit var swShowPostView: Switch
     private lateinit var tvSaveFolder: TextView
-    private lateinit var btnSaveFolder: ImageButton
+
+    private var timeStartButtonTapped = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         refActivity = WeakReference(this)
         super.onCreate(savedInstanceState)
         App1.prepareAppState(this)
         initUI()
-        showSaveFolder()
     }
 
     override fun onStart() {
         super.onStart()
+        showSaveFolder()
         showButton()
         dispatch()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (
-            when (requestCode) {
-                REQUEST_CODE_OVERLAY ->
-                    canOverlay()
-
-                REQUEST_CODE_SCREEN_CAPTURE ->
-                    Capture.handleScreenCaptureIntentResult(this, resultCode, data)
-
-                REQUEST_CODE_DOCUMENT_TREE ->
-                    handleSaveTreeUriResult(resultCode, data)
-
-                else -> false
-            }
-        ) dispatch()
-
         super.onActivityResult(requestCode, resultCode, data)
-    }
 
-    private var timeStartButtonTapped = 0L
+        val continueDispatch = when (requestCode) {
+            REQUEST_CODE_OVERLAY ->
+                handleOverlayResult()
+
+
+            REQUEST_CODE_SCREEN_CAPTURE ->
+                Capture.handleScreenCaptureIntentResult(this, resultCode, data)
+
+            REQUEST_CODE_DOCUMENT_TREE ->
+                handleSaveTreeUriResult(resultCode, data)
+
+            else -> false
+        }
+
+        if (continueDispatch) {
+            dispatch()
+        } else {
+            timeStartButtonTapped = 0L
+        }
+    }
 
     override fun onClick(v: View?) {
         timeStartButtonTapped = 0L
@@ -87,12 +96,20 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             R.id.btnSaveFolder ->
                 openSaveTreeUriChooser()
 
-            R.id.btnStop ->
-                stopService(Intent(this, MyService::class.java))
+            R.id.btnStartStop ->
+                if (isServiceAlive()) {
+                    stopService(Intent(this, MyService::class.java))
+                } else {
+                    timeStartButtonTapped = SystemClock.elapsedRealtime()
+                    dispatch()
+                }
 
-            R.id.btnStart -> {
-                timeStartButtonTapped = SystemClock.elapsedRealtime()
-                dispatch()
+            R.id.btnResetPosition -> {
+                App1.pref.edit()
+                    .remove(Pref.fpCameraButtonX)
+                    .remove(Pref.fpCameraButtonY)
+                    .apply()
+                MyService.getService()?.reloadPosition()
             }
         }
     }
@@ -100,39 +117,38 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     /////////////////////////////////////////
 
     private fun initUI() {
+
         setContentView(R.layout.act_main)
 
+        // 設定UIの横幅が一定以上に広がらないようにする
         val dm = resources.displayMetrics
-        val svRoot: View = findViewById(R.id.svRoot)
         val screenWidth = dm.widthPixels
         val pageWidth = 360f.dp2px(dm)
         val remain = max(0, screenWidth - pageWidth)
-        (svRoot.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
-            this.marginEnd = remain
+        (findViewById<View>(R.id.svRoot).layoutParams as? ViewGroup.MarginLayoutParams)
+            ?.marginEnd = remain
+
+        btnStartStop = findViewById(R.id.btnStartStop)
+
+        arrayOf(
+            btnStartStop,
+            findViewById<View>(R.id.btnSaveFolder),
+            findViewById<View>(R.id.btnResetPosition)
+        ).forEach {
+            it?.setOnClickListener(this)
         }
 
-        btnStart = findViewById(R.id.btnStart)
-        btnStop = findViewById(R.id.btnStop)
-        btnSaveFolder = findViewById(R.id.btnSaveFolder)
-
-        arrayOf(btnStart, btnStop, btnSaveFolder).forEach {
-            it.setOnClickListener(this)
-        }
+        tvSaveFolder = findViewById(R.id.tvSaveFolder)
+        tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
+        tvButtonSizeError.vg(false)
 
         val pref = App1.pref
 
-        etButtonSize = findViewById(R.id.etButtonSize)
-        tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
+        Pref.bpSavePng.bindUI(pref, findViewById(R.id.swSavePng))
+        Pref.bpShowPostView.bindUI(pref, findViewById(R.id.swShowPostView))
 
-        swSavePng = findViewById<Switch>(R.id.swSavePng)
-            .also { Pref.bpSavePng.bindUI(pref, it) }
-
-        swShowPostView = findViewById<Switch>(R.id.swShowPostView)
-            .also { Pref.bpShowPostView.bindUI(pref, it) }
-
+        val etButtonSize: EditText = findViewById(R.id.etButtonSize)
         etButtonSize.setText(Pref.ipCameraButtonSize(pref).toString())
-        tvButtonSizeError.vg(false)
-
         etButtonSize.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
             }
@@ -148,11 +164,10 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             }
         })
 
-        tvSaveFolder = findViewById(R.id.tvSaveFolder)
     }
 
-    private fun showSaveFolder() {
 
+    private fun showSaveFolder() {
         tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
             .notEmpty()
             ?.let { pathFromDocumentUri(this, Uri.parse(it)) }
@@ -161,16 +176,18 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     // サービスからも呼ばれる
     fun showButton() {
-        try {
-            if (isDestroyed) return
-            val serviceAlive = MyService.getService() != null
-            btnStart.vg(!serviceAlive)
-            btnStop.vg(serviceAlive)
-        } catch (ex: Throwable) {
-            log.e(ex, "showButton() failed.")
-        }
+        if (isDestroyed) return
+        btnStartStop.setText(
+            if (isServiceAlive()) {
+                R.string.stop
+            } else {
+                R.string.start
+            }
+        )
     }
 
+    // 権限のチェックと取得インタラクションの開始
+    // 画面表示時や撮影ボタンの表示開始時に呼ばれる
     private fun dispatch() {
         if (!prepareOverlay()) return
 
@@ -185,16 +202,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    // ダイアログを多重に開かないようにする
-    private var lastDialog: Dialog? = null
-
-    private fun AlertDialog.Builder.showEx() {
-        if (lastDialog?.isShowing == true) {
-            log.w("dialog is already showing.")
-            return
-        }
-        lastDialog = this.create().apply { show() }
-    }
+    ///////////////////////////////////////////////////////
+    // 保存フォルダの選択と書き込み権限
 
     private fun openSaveTreeUriChooser() {
         startActivityForResult(
@@ -249,19 +258,16 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return false
     }
 
-    private fun canOverlay() =
-        if (Build.VERSION.SDK_INT >= API_OVERLAY_PERMISSION_CHECK) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
-        }
+    /////////////////////////////////////////////////////////////////
+    // オーバーレイ表示の権限
 
     @SuppressLint("InlinedApi")
     private fun prepareOverlay(): Boolean {
-        if (canOverlay()) return true
+        if (canDrawOverlaysCompat(this)) return true
 
-        AlertDialog.Builder(this)
+        return AlertDialog.Builder(this)
             .setMessage(R.string.please_allow_overlay_permission)
+            .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.ok) { _, _ ->
                 startActivityForResult(
                     Intent(
@@ -271,8 +277,25 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                     REQUEST_CODE_OVERLAY
                 )
             }
-            .setNegativeButton(R.string.cancel, null)
             .showEx()
+    }
+
+    private fun handleOverlayResult(): Boolean {
+        // 設定画面から戻るボタンなどで復帰するため、 resultCode が RESULT_OK になることはない
+        return canDrawOverlaysCompat(this)
+    }
+
+    ///////////////////////////////////////////////////
+    // ダイアログの多重表示を防止する
+
+    private var lastDialog: WeakReference<Dialog>? = null
+
+    private fun AlertDialog.Builder.showEx(): Boolean {
+        if (lastDialog?.get()?.isShowing == true) {
+            log.w("dialog is already showing.")
+        } else {
+            lastDialog = WeakReference(this.create().apply { show() })
+        }
         return false
     }
 }

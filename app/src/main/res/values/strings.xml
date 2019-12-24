@@ -18,4 +18,5 @@
     <string name="edit">Edit</string>
     <string name="not_selected">Not selected</string>
     <string name="overlay_button_desc">You can move the overlay button by dragging.\nNotice if Android 10+ System Gesture Navigation is enabled, the buttons on the edge may not respond.</string>
+    <string name="reset_position">Reset position</string>
 </resources>

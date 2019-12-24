@@ -85,28 +85,13 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
         startForeground(NOTIFICATION_ID_RUNNING, createRunningNotification())
 
-        val dm = resources.displayMetrics
-
-        this.buttonSize = Pref.ipCameraButtonSize(App1.pref).toFloat().dp2px(dm)
-
-        val buttonX = clipInt(
-            0,
-            dm.widthPixels - buttonSize,
-            Pref.fpCameraButtonX(App1.pref).dp2px(dm)
-        )
-        val buttonY = clipInt(
-            0,
-            dm.heightPixels - buttonSize,
-            Pref.fpCameraButtonY(App1.pref).dp2px(dm)
-        )
-
         btnCamera = viewRoot.findViewById(R.id.btnCamera)
         btnCamera.setOnClickListener(this)
         btnCamera.setOnTouchListener(this)
 
         layoutParam = WindowManager.LayoutParams(
-            buttonSize,
-            buttonSize,
+            0, // 後で上書きされる
+            0,
             if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
@@ -119,9 +104,10 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.LEFT or Gravity.TOP
-            x = buttonX
-            y = buttonY
         }
+
+        loadButtonPosition()
+
         btnCamera.windowLayoutParams = layoutParam
         windowManager.addView(viewRoot, layoutParam)
 
@@ -148,6 +134,9 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+
+        reloadPosition()
+
         try {
             Capture.updateMediaProjection()
         } catch (ex: Throwable) {
@@ -158,52 +147,37 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
 
     //////////////////////////////////////////////
 
-    private fun createRunningNotification(): Notification {
+    // 設定からボタン位置を読み直す
+    // ただし反映はされない
+    private fun loadButtonPosition() {
+        val dm = resources.displayMetrics
 
-        if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
-            // Create the NotificationChannel
-            notificationManager.createNotificationChannel(
-                NotificationChannel(
-                    NOTIFICATION_CHANNEL_RUNNING,
-                    getString(R.string.capture_standby),
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = getString(R.string.capture_standby_description)
-                }
-            )
-        }
+        buttonSize = Pref.ipCameraButtonSize(App1.pref).toFloat().dp2px(dm)
+        layoutParam.width = buttonSize
+        layoutParam.height = buttonSize
 
-        return NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_RUNNING)
-            .setSmallIcon(R.drawable.notification_icon1)
-            .setContentTitle(getString(R.string.capture_standby))
-            .setContentText(getString(R.string.capture_standby_description))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    context,
-                    PI_CODE_RUNNING_TAP,
-                    Intent(context, ActMain::class.java)
-                        .apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        },
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            )
-            .setDeleteIntent(
-                PendingIntent.getBroadcast(
-                    context,
-                    PI_CODE_RUNNING_DELETE,
-                    Intent(context, MyReceiver::class.java)
-                        .apply { action = MyReceiver.ACTION_RUNNING_DELETE },
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            )
-            .build()
+        layoutParam.x = clipInt(
+            0,
+            dm.widthPixels - buttonSize,
+            Pref.fpCameraButtonX(App1.pref).dp2px(dm)
+        )
+
+        layoutParam.y = clipInt(
+            0,
+            dm.heightPixels - buttonSize,
+            Pref.fpCameraButtonY(App1.pref).dp2px(dm)
+        )
+    }
+
+    // UIから呼ばれる
+    fun reloadPosition() {
+        loadButtonPosition()
+        windowManager.updateViewLayout(viewRoot, layoutParam)
+        btnCamera.updateExclusion()
     }
 
     //////////////////////////////////////////////
-    // 撮影ボタンをドラッグして移動できるようにする
+    // 撮影ボタンのドラッグ操作
 
     private fun setButtonDrawable(showing: Boolean) {
         if (showing) {
@@ -300,4 +274,49 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             }
         }
     }
+
+    private fun createRunningNotification(): Notification {
+
+        if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
+            // Create the NotificationChannel
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_RUNNING,
+                    getString(R.string.capture_standby),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = getString(R.string.capture_standby_description)
+                }
+            )
+        }
+
+        return NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_RUNNING)
+            .setSmallIcon(R.drawable.notification_icon1)
+            .setContentTitle(getString(R.string.capture_standby))
+            .setContentText(getString(R.string.capture_standby_description))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context,
+                    PI_CODE_RUNNING_TAP,
+                    Intent(context, ActMain::class.java)
+                        .apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        },
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+            .setDeleteIntent(
+                PendingIntent.getBroadcast(
+                    context,
+                    PI_CODE_RUNNING_DELETE,
+                    Intent(context, MyReceiver::class.java)
+                        .apply { action = MyReceiver.ACTION_RUNNING_DELETE },
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+            .build()
+    }
+
 }

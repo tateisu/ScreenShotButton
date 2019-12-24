@@ -7,4 +7,5 @@
     android:importantForAccessibility="no"
     android:src="@drawable/ic_camera"
     android:scaleType="fitCenter"
+    android:tint="#333"
     />
