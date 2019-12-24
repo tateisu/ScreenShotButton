@@ -1,5 +1,6 @@
 package jp.juggler.util
 
+import android.annotation.TargetApi
 import android.app.AppOpsManager
 import android.content.Context
 import android.graphics.*
@@ -10,6 +11,11 @@ import android.util.DisplayMetrics
 import android.view.View
 import android.view.WindowManager
 import jp.juggler.screenshotbutton.API_APPLICATION_OVERLAY
+import android.view.Display
+import androidx.core.content.ContextCompat.getSystemService
+import android.icu.lang.UCharacter.GraphemeClusterBreak.T
+
+
 
 
 @Suppress("SameParameterValue")
@@ -124,3 +130,4 @@ fun canDrawOverlaysCompat(context: Context): Boolean {
     return false
 
 }
+

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Point
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.Image
@@ -24,6 +25,11 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import android.view.Display
+import android.view.WindowManager
+import java.nio.file.Files.size
+import kotlin.math.min
+
 
 object Capture {
     private val log = LogCategory("${App1.tagPrefix}/Capture")
@@ -40,6 +46,7 @@ object Capture {
     private lateinit var handler: Handler
     private lateinit var mediaScannerTracker: MediaScannerTracker
     private lateinit var mediaProjectionManager: MediaProjectionManager
+    private lateinit var windowManager : WindowManager
 
     private var screenCaptureIntent: Intent? = null
     private var mediaProjection: MediaProjection? = null
@@ -53,6 +60,8 @@ object Capture {
         mediaScannerTracker = MediaScannerTracker(context.applicationContext, handler)
         mediaProjectionManager =
             context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        windowManager  =
+            context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
     // mediaProjection と screenCaptureIntentを解放する
@@ -183,14 +192,22 @@ object Capture {
                 ?: error("mediaProjection is null.")
 
             val dm = context.resources.displayMetrics
-            val displayWidth = dm.widthPixels
-            val displayHeight = dm.heightPixels
+//            val displayWidth = dm.widthPixels
+//            val displayHeight = dm.heightPixels
             val densityDpi = dm.densityDpi
+            log.d("displayMetrics ${dm.widthPixels},${dm.heightPixels},$densityDpi")
 
+            val size = Point()
+            windowManager.defaultDisplay.getSize(size)
+            log.d("defaultDisplay.getSize ${size.x},${size.y}")
+
+            val realSize = Point()
+            windowManager.defaultDisplay.getRealSize(realSize)
+            log.d("defaultDisplay.getRealSize ${realSize.x},${realSize.y}")
 
             ImageReader.newInstance(
-                displayWidth,
-                displayHeight,
+                realSize.x,
+                realSize.y,
                 PixelFormat.RGBA_8888,
                 2
             ).use { imageReader ->
@@ -203,8 +220,8 @@ object Capture {
                     suspendCoroutine<String> { cont ->
                         virtualDisplay = mediaProjection.createVirtualDisplay(
                             App1.tagPrefix,
-                            displayWidth,
-                            displayHeight,
+                            realSize.x,
+                            realSize.y,
                             densityDpi,
                             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                             imageReader.surface,
@@ -254,7 +271,7 @@ object Capture {
 
                         try {
                             return withContext(Dispatchers.IO) {
-                                save(image)
+                                save(image,realSize.x,realSize.y)
                             }.also {
                                 bench("save OK. shutter delay=${timeGetImage - timeClick}ms")
                             }
@@ -281,77 +298,95 @@ object Capture {
             }
         }
 
-        private suspend fun save(image: Image): Uri {
+        private suspend fun save(image: Image,screenWidth:Int,screenHeight:Int): Uri {
 
             bench("save start")
 
-            val width = image.width
-            val height = image.height
+            val imageWidth = image.width
+            val imageHeight = image.height
             val plane = image.planes[0]
-            val pixelStride = plane.pixelStride
-            val rowStride = plane.rowStride
-            val rowPadding = rowStride - pixelStride * width
-            log.d("size=($width,$height),pixelStride=$pixelStride,rowStride=$rowStride,rowPadding=$rowPadding")
+            val pixelBytes = plane.pixelStride // The distance between adjacent pixel samples, in bytes.
+            val rowBytes = plane.rowStride // The row stride for this color plane, in bytes.
+            val rowPixels = rowBytes/pixelBytes
+            val paddingPixels = rowPixels -imageWidth
+
+            log.d("size=($imageWidth,$imageHeight),rowPixels=$rowPixels,paddingPixels=$paddingPixels")
 
             return Bitmap.createBitmap(
-                width + rowPadding / pixelStride,
-                height,
+                rowPixels,
+                imageHeight,
                 Bitmap.Config.ARGB_8888
-            )?.use { bitmap ->
-                bitmap.copyPixelsFromBuffer(plane.buffer)
+            )?.use { tmpBitmap  ->
 
+                val tmpWidth = tmpBitmap.width
+                val tmpHeight = tmpBitmap.height
+                tmpBitmap.copyPixelsFromBuffer(plane.buffer)
                 bench("copyPixelsFromBuffer")
 
-                createResizedBitmap(bitmap, 256, 256).use { smallBitmap ->
-                    bench("createResizedBitmap")
-                    smallBitmap.checkBlank()
-                    bench("checkBlank")
+                val newWidth = min(tmpWidth,screenWidth)
+                val newHeight = min(tmpHeight,screenHeight)
+                val srcBitmap = if( tmpWidth ==newWidth && tmpHeight == newHeight ){
+                    tmpBitmap
+                }else{
+                    Bitmap.createBitmap(tmpBitmap, 0, 0, newWidth, newHeight)
                 }
 
-                val mimeType: String
-                val compressFormat: Bitmap.CompressFormat
-                val compressQuality = 100
-                when {
-                    Pref.bpSavePng(App1.pref) -> {
-                        mimeType = "image/png"
-                        compressFormat = Bitmap.CompressFormat.PNG
+                try{
+                    createResizedBitmap(srcBitmap, 256, 256).use { smallBitmap ->
+                        bench("createResizedBitmap")
+                        smallBitmap.checkBlank()
+                        bench("checkBlank")
                     }
-                    else -> {
-                        mimeType = "image/jpeg"
-                        compressFormat = Bitmap.CompressFormat.JPEG
-                    }
-                }
 
-                generateDocument(
-                    context,
-                    Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                    generateBasename(),
-                    mimeType
-                ).also { itemUri ->
-
-                    try {
-                        context.contentResolver.openOutputStream(itemUri).use { outputStream ->
-                            bench("before compress")
-                            bitmap.compress(compressFormat, compressQuality, outputStream)
-                            bench("compress and write to $itemUri")
+                    val mimeType: String
+                    val compressFormat: Bitmap.CompressFormat
+                    val compressQuality = 100
+                    when {
+                        Pref.bpSavePng(App1.pref) -> {
+                            mimeType = "image/png"
+                            compressFormat = Bitmap.CompressFormat.PNG
                         }
-                    }catch(ex:Throwable){
+                        else -> {
+                            mimeType = "image/jpeg"
+                            compressFormat = Bitmap.CompressFormat.JPEG
+                        }
+                    }
+
+                    generateDocument(
+                        context,
+                        Uri.parse(Pref.spSaveTreeUri(App1.pref)),
+                        generateBasename(),
+                        mimeType
+                    ).also { itemUri ->
+
                         try {
-                            if(!deleteDocument(context,itemUri))
-                                log.e("deleteDocument returns false.")
-                        }catch(ex2:Throwable) {
-                            log.e(ex2,"deleteDocument failed.")
+                            context.contentResolver.openOutputStream(itemUri).use { outputStream ->
+                                bench("before compress")
+                                srcBitmap.compress(compressFormat, compressQuality, outputStream)
+                                bench("compress and write to $itemUri")
+                            }
+                        }catch(ex:Throwable){
+                            try {
+                                if(!deleteDocument(context,itemUri))
+                                    log.e("deleteDocument returns false.")
+                            }catch(ex2:Throwable) {
+                                log.e(ex2,"deleteDocument failed.")
+                            }
+                            throw ex
                         }
-                        throw ex
+
+                        val path = pathFromDocumentUri(context, itemUri)
+                            ?: error("can't get path for $itemUri")
+
+                        mediaScannerTracker.scanAndWait(path, mimeType)?.let { mediaUri ->
+                            bench("media scan: $mediaUri")
+                        }
+
                     }
-
-                    val path = pathFromDocumentUri(context, itemUri)
-                        ?: error("can't get path for $itemUri")
-
-                    mediaScannerTracker.scanAndWait(path, mimeType)?.let { mediaUri ->
-                        bench("media scan: $mediaUri")
+                }finally{
+                    if(srcBitmap !== tmpBitmap){
+                        srcBitmap?.recycle()
                     }
-
                 }
             } ?: error("bitmap creation failed.")
         }
