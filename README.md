@@ -1,7 +1,7 @@
 # ScreenShotButton
 Android app that shows overlay screen shot button.
 
-### Features
+### Feature
 - Showing post view after shooting.
 - OSS, no pay, no ad, no tracking.
 - Automatically detect and retry issues with black screen shots on some devices.
@@ -11,7 +11,7 @@ Android app that shows overlay screen shot button.
 - To reduce the load, the shutter lag is slightly larger.
 - if the overlay button was closed on your device, please check https://dontkillmyapp.com/ .
 
-### Verified devices
+### Confirmed devices
 - API 29 Android 10 Essential PH-1 Phone 
 - API 28 Android 9 Huawei CMR-W19 MediaPad M5 Pro 
 - API 27 Android 8.1 Google bullhead Nexus 5X (Google store,2015) 
@@ -22,9 +22,6 @@ Android app that shows overlay screen shot button.
 - API 22 Android 5.1 Aubee CP-B43-Ab elm. 
 - API 21 Android 5.0.2 LGE LGL24 isai FL
 
-### Motivation
-I don't think this app has anything new, but I needed code that I can hack freely to solve problems on my device.
-
 ## Screen shot example
 
 The shape like 'aperture' at the top-left corner on screen is overlay shutter button. You can move it by dragging.
@@ -32,3 +29,6 @@ The shape like 'aperture' at the top-left corner on screen is overlay shutter bu
 
 This app shows 'postview' after tap the shutter button.
 ![Screenshot_20191221_232724_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309446-0b5cce00-244b-11ea-84c6-180f9b7e562c.jpg)
+
+### Motivation
+I don't think this app has anything new, but I needed code that I can hack freely to solve problems on my device.
