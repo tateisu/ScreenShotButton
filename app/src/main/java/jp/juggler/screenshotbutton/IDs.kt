@@ -4,7 +4,6 @@ package jp.juggler.screenshotbutton
 /*
     API Level による実装の切り替え
  */
-const val API_OVERLAY_PERMISSION_CHECK = 23
 const val API_STORAGE_VOLUME = 24
 const val API_EXTRA_INITIAL_URI = 26
 const val API_NOTIFICATION_CHANNEL = 26

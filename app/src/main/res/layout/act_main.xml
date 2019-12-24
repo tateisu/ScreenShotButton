@@ -18,9 +18,7 @@
         android:paddingBottom="6dp">
         <!-- paddingTopが大きいのは、撮影ボタンのデフォルト位置に被らないようにするため -->
 
-        <View
-            style="@style/setting_border"
-            />
+        <View style="@style/setting_border" />
 
         <TextView
             style="@style/setting_caption"
@@ -28,42 +26,44 @@
 
         <LinearLayout
             style="@style/setting_item"
-            android:orientation="horizontal"
             android:baselineAligned="true"
-            >
+            android:orientation="horizontal">
+
             <Button
                 android:id="@+id/btnStartStop"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/start" />
+                android:text="@string/start"
+                tools:ignore="ButtonStyle" />
 
             <Button
                 android:id="@+id/btnResetPosition"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:text="@string/reset_position" />
+                android:text="@string/reset_position"
+                tools:ignore="ButtonStyle" />
         </LinearLayout>
 
 
         <TextView
             style="@style/setting_item"
-            android:textSize="12sp"
+            android:text="@string/overlay_button_desc"
             android:textColor="#000"
-            android:text="@string/overlay_button_desc"/>
+            android:textSize="12sp" />
 
         <View style="@style/setting_border" />
 
         <TextView
             style="@style/setting_caption"
-            android:text="@string/overlay_button_size"
-            android:labelFor="@+id/etButtonSize"/>
+            android:labelFor="@+id/etButtonSize"
+            android:text="@string/overlay_button_size" />
 
         <EditText
             android:id="@+id/etButtonSize"
             style="@style/setting_item"
-            android:inputType="number"
-            android:importantForAutofill="no"/>
+            android:importantForAutofill="no"
+            android:inputType="number" />
 
         <TextView
             android:id="@+id/tvButtonSizeError"
@@ -100,23 +100,23 @@
 
         <LinearLayout
             style="@style/setting_item"
-            android:orientation="horizontal"
             android:gravity="center_vertical"
-            >
+            android:orientation="horizontal">
+
             <TextView
+                android:id="@+id/tvSaveFolder"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="#000"
-                android:id="@+id/tvSaveFolder"
-                />
+                android:textColor="#000" />
+
             <ImageButton
                 android:id="@+id/btnSaveFolder"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:contentDescription="@string/edit"
                 android:elevation="3dp"
-                android:src="@drawable/ic_edit"
-                android:contentDescription="@string/edit" />
+                android:src="@drawable/ic_edit" />
 
         </LinearLayout>
 

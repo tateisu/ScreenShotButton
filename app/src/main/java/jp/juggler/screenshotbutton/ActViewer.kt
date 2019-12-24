@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Shader
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.PersistableBundle
@@ -14,7 +14,6 @@ import android.view.Window
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import jp.juggler.util.*
 import kotlinx.coroutines.*
@@ -199,7 +198,9 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
         tvDesc = findViewById(R.id.tvDesc)
 
         ivImage.background = TileDrawable(
-            ContextCompat.getDrawable(this,R.drawable.dark_tile)!!
+            (resources.displayMetrics.density * 12f + 0.5f).toInt(),
+            Color.BLACK,
+            Color.BLACK or 0x222222
         )
     }
 

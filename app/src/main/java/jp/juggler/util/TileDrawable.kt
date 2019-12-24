@@ -1,10 +1,13 @@
 package jp.juggler.util
 
-import android.graphics.Canvas
-import android.graphics.ColorFilter
+import android.graphics.*
 import android.graphics.drawable.Drawable
 
-class TileDrawable( private val src: Drawable ) : Drawable() {
+class TileDrawable(private val stepSize: Int, private val colorA: Int, private val colorB: Int) :
+    Drawable() {
+
+    private val paint = Paint()
+    private val rect = Rect()
 
     override fun draw(canvas: Canvas) {
         val bounds = this.bounds
@@ -13,31 +16,37 @@ class TileDrawable( private val src: Drawable ) : Drawable() {
         val startY = bounds.top
         val endX = bounds.right
         val endY = bounds.bottom
-        val stepX = src.intrinsicWidth
-        val stepY = src.intrinsicHeight
-        for( y in startY until endY step stepY ){
-            val bottom = y+stepY
+        var oddY = false
+        for (y in startY until endY step stepSize) {
+            rect.top = y
+            rect.bottom = y + stepSize
 
-            for( x in startX until endX step stepX ){
-                val right = x+stepX
+            var oddX = oddY
+            for (x in startX until endX step stepSize) {
+                rect.left = x
+                rect.right = x + stepSize
 
-                if( dirtyBounds.intersects(x, y,right,bottom)){
-                    src.setBounds(x, y,right,bottom)
-                    src.draw(canvas)
+                if (Rect.intersects(dirtyBounds, rect)) {
+                    paint.color = if(oddX) colorB else colorA
+                    canvas.drawRect(rect, paint)
                 }
+
+                oddX = !oddX
             }
+
+            oddY = !oddY
         }
     }
 
     // deprecated in API29. This method is no longer used in graphics optimizations
     @Suppress("DEPRECATION")
-    override fun getOpacity() = src.opacity
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
 
     override fun setAlpha(alpha: Int) {
-        src.alpha = alpha
+        paint.alpha = alpha
     }
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-        src.colorFilter = colorFilter
+        paint.colorFilter = colorFilter
     }
 }

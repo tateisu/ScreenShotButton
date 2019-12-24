@@ -2,7 +2,6 @@ package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
 import android.app.Dialog
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -14,19 +13,15 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import jp.juggler.util.*
 import java.lang.ref.WeakReference
 import kotlin.math.max
-import android.graphics.PixelFormat
-import android.view.WindowManager
-import android.content.Context.WINDOW_SERVICE
-import androidx.core.content.ContextCompat.getSystemService
-import androidx.core.app.ComponentActivity.ExtraData
-import android.icu.lang.UCharacter.GraphemeClusterBreak.T
 
 
 class ActMain : AppCompatActivity(), View.OnClickListener {

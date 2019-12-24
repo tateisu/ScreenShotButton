@@ -17,7 +17,7 @@
     </item>
     <item>
         <shape android:shape="oval">
-            <solid android:color="#eee"/>
+            <solid android:color="@color/colorLauncherIconBackground"/>
         </shape>
     </item>
 </selector>

@@ -3,7 +3,7 @@
     android:height="108dp"
     android:viewportWidth="41.37931"
     android:viewportHeight="41.37931"
-    android:tint="#000000">
+    android:tint="@color/colorLauncherIconForeground">
   <group android:translateX="8.689655"
       android:translateY="8.689655">
       <path
