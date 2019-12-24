@@ -97,6 +97,7 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
             } else {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+                // TYPE_SYSTEM_OVERLAYはロック画面にもViewを表示できますが、タッチイベントを取得できません
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     // WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or

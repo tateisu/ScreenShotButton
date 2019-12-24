@@ -5,8 +5,6 @@
     android:layout_height="match_parent"
     tools:context=".ActViewer"
     android:orientation="vertical"
-    android:padding="8dp"
-
     >
 
     <LinearLayout
@@ -14,6 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="top"
+        android:padding="8dp"
         >
         <ImageButton
             android:id="@+id/btnBack"
@@ -63,8 +62,6 @@
         android:id="@+id/ivImage"
         android:importantForAccessibility="no"
         android:scaleType="fitCenter"
-
         android:padding="4dp"
         />
-
 </LinearLayout>
