@@ -11,6 +11,9 @@ Android app that shows overlay screen shot button.
 - To reduce the load, the shutter lag is slightly larger.
 - if the overlay button was closed on your device, please check https://dontkillmyapp.com/ .
 
+### Install
+- please find APK files in assets of the release. https://github.com/tateisu/ScreenShotButton/releases
+
 ### Confirmed devices
 - API 29 Android 10 Essential PH-1 Phone 
 - API 28 Android 9 Huawei CMR-W19 MediaPad M5 Pro 
