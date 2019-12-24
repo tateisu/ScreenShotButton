@@ -63,7 +63,8 @@
         android:id="@+id/ivImage"
         android:importantForAccessibility="no"
         android:scaleType="fitCenter"
-        android:background="@drawable/viewer_bg"
+
+        android:padding="4dp"
         />
 
 </LinearLayout>

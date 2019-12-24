@@ -16,6 +16,7 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Handler
 import android.os.SystemClock
+import android.view.WindowManager
 import jp.juggler.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -25,9 +26,6 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
-import android.view.Display
-import android.view.WindowManager
-import java.nio.file.Files.size
 import kotlin.math.min
 
 
@@ -46,7 +44,7 @@ object Capture {
     private lateinit var handler: Handler
     private lateinit var mediaScannerTracker: MediaScannerTracker
     private lateinit var mediaProjectionManager: MediaProjectionManager
-    private lateinit var windowManager : WindowManager
+    private lateinit var windowManager: WindowManager
 
     private var screenCaptureIntent: Intent? = null
     private var mediaProjection: MediaProjection? = null
@@ -60,7 +58,7 @@ object Capture {
         mediaScannerTracker = MediaScannerTracker(context.applicationContext, handler)
         mediaProjectionManager =
             context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        windowManager  =
+        windowManager =
             context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
@@ -191,15 +189,7 @@ object Capture {
             val mediaProjection = mediaProjection
                 ?: error("mediaProjection is null.")
 
-            val dm = context.resources.displayMetrics
-//            val displayWidth = dm.widthPixels
-//            val displayHeight = dm.heightPixels
-            val densityDpi = dm.densityDpi
-            log.d("displayMetrics ${dm.widthPixels},${dm.heightPixels},$densityDpi")
-
-            val size = Point()
-            windowManager.defaultDisplay.getSize(size)
-            log.d("defaultDisplay.getSize ${size.x},${size.y}")
+            val densityDpi = context.resources.displayMetrics.densityDpi
 
             val realSize = Point()
             windowManager.defaultDisplay.getRealSize(realSize)
@@ -271,7 +261,7 @@ object Capture {
 
                         try {
                             return withContext(Dispatchers.IO) {
-                                save(image,realSize.x,realSize.y)
+                                save(image, realSize.x, realSize.y)
                             }.also {
                                 bench("save OK. shutter delay=${timeGetImage - timeClick}ms")
                             }
@@ -298,43 +288,44 @@ object Capture {
             }
         }
 
-        private suspend fun save(image: Image,screenWidth:Int,screenHeight:Int): Uri {
+        private suspend fun save(image: Image, screenWidth: Int, screenHeight: Int): Uri {
 
             bench("save start")
 
             val imageWidth = image.width
             val imageHeight = image.height
             val plane = image.planes[0]
-            val pixelBytes = plane.pixelStride // The distance between adjacent pixel samples, in bytes.
+            val pixelBytes =
+                plane.pixelStride // The distance between adjacent pixel samples, in bytes.
             val rowBytes = plane.rowStride // The row stride for this color plane, in bytes.
-            val rowPixels = rowBytes/pixelBytes
-            val paddingPixels = rowPixels -imageWidth
+            val rowPixels = rowBytes / pixelBytes
+            val paddingPixels = rowPixels - imageWidth
 
             log.d("size=($imageWidth,$imageHeight),rowPixels=$rowPixels,paddingPixels=$paddingPixels")
 
+            @Suppress("UnnecessaryVariable") val tmpWidth = rowPixels
+            @Suppress("UnnecessaryVariable") val tmpHeight = imageHeight
             return Bitmap.createBitmap(
-                rowPixels,
-                imageHeight,
+                tmpWidth,
+                tmpHeight,
                 Bitmap.Config.ARGB_8888
-            )?.use { tmpBitmap  ->
+            )?.use { tmpBitmap ->
 
-                val tmpWidth = tmpBitmap.width
-                val tmpHeight = tmpBitmap.height
                 tmpBitmap.copyPixelsFromBuffer(plane.buffer)
                 bench("copyPixelsFromBuffer")
 
-                val newWidth = min(tmpWidth,screenWidth)
-                val newHeight = min(tmpHeight,screenHeight)
-                val srcBitmap = if( tmpWidth ==newWidth && tmpHeight == newHeight ){
+                val srcWidth = min(tmpWidth, screenWidth)
+                val srcHeight = min(tmpHeight, screenHeight)
+                val srcBitmap = if (tmpWidth == srcWidth && tmpHeight == srcHeight) {
                     tmpBitmap
-                }else{
-                    Bitmap.createBitmap(tmpBitmap, 0, 0, newWidth, newHeight)
+                } else {
+                    Bitmap.createBitmap(tmpBitmap, 0, 0, srcWidth, srcHeight)
                 }
 
-                try{
+                try {
                     createResizedBitmap(srcBitmap, 256, 256).use { smallBitmap ->
                         bench("createResizedBitmap")
-                        smallBitmap.checkBlank()
+                        if (smallBitmap.isBlank()) error(ERROR_BLANK_IMAGE)
                         bench("checkBlank")
                     }
 
@@ -360,17 +351,22 @@ object Capture {
                     ).also { itemUri ->
 
                         try {
-                            context.contentResolver.openOutputStream(itemUri).use { outputStream ->
-                                bench("before compress")
-                                srcBitmap.compress(compressFormat, compressQuality, outputStream)
-                                bench("compress and write to $itemUri")
-                            }
-                        }catch(ex:Throwable){
+                            context.contentResolver.openOutputStream(itemUri)
+                                .use { outputStream ->
+                                    bench("before compress")
+                                    srcBitmap.compress(
+                                        compressFormat,
+                                        compressQuality,
+                                        outputStream
+                                    )
+                                    bench("compress and write to $itemUri")
+                                }
+                        } catch (ex: Throwable) {
                             try {
-                                if(!deleteDocument(context,itemUri))
+                                if (!deleteDocument(context, itemUri))
                                     log.e("deleteDocument returns false.")
-                            }catch(ex2:Throwable) {
-                                log.e(ex2,"deleteDocument failed.")
+                            } catch (ex2: Throwable) {
+                                log.e(ex2, "deleteDocument failed.")
                             }
                             throw ex
                         }
@@ -383,8 +379,8 @@ object Capture {
                         }
 
                     }
-                }finally{
-                    if(srcBitmap !== tmpBitmap){
+                } finally {
+                    if (srcBitmap !== tmpBitmap) {
                         srcBitmap?.recycle()
                     }
                 }
@@ -392,7 +388,7 @@ object Capture {
         }
     }
 
-    private fun Bitmap.checkBlank() {
+    private fun Bitmap.isBlank(): Boolean {
         val pixels = IntArray(width * height)
         getPixels(pixels, 0, width, 0, 0, width, height)
         var preColor: Int? = null
@@ -403,10 +399,10 @@ object Capture {
             } else if (null == preColor) {
                 preColor = color
             } else {
-                return // not blank image
+                return false// not blank image
             }
         }
-        error(ERROR_BLANK_IMAGE)
+        return true
     }
 
     private fun generateBasename(): String {
