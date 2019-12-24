@@ -1,3 +1,5 @@
+import java.text.SimpleDateFormat
+
 apply plugin: 'com.android.application'
 
 apply plugin: 'kotlin-android'
@@ -14,6 +16,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // sign key is same to SubwayTooter
     }
     buildTypes {
         release {
@@ -25,13 +29,32 @@ android {
         freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
     }
 
+    // Generate Signed APK のファイル名を変更
+    android.applicationVariants.all { variant ->
+        if (variant.buildType.name == "release") {
+            variant.outputs.all {
+                // Rename APK
+                def versionCode = defaultConfig.versionCode
+                def versionName = defaultConfig.versionName
+                def flavor = variant.buildType.name
+                def date = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())
+                outputFileName = "../../ScreenShotButton-${flavor}-${versionCode}-${versionName}-${date}.apk"
+            }
+        }
+    }
+
 }
 
 
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test:runner:1.2.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     def kotlinx_coroutines_version = '1.3.1'
@@ -39,12 +62,5 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_coroutines_version"
 
     implementation 'androidx.appcompat:appcompat:1.1.0'
-
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test:runner:1.2.0'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'androidx.documentfile:documentfile:1.0.1'
-
-
 }
