@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.view.*
+import androidx.annotation.DrawableRes
 import androidx.core.app.NotificationCompat
 import jp.juggler.util.LogCategory
 import jp.juggler.util.clipInt
@@ -18,20 +19,20 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.lang.ref.WeakReference
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 import kotlin.math.max
 
 @SuppressLint("InflateParams")
-class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchListener {
+abstract class CaptureServiceBase(
+    val fpCameraButtonX: FloatPref,
+    val fpCameraButtonY: FloatPref,
+    @DrawableRes val iconId: Int
+
+) : Service(), CoroutineScope, View.OnClickListener, View.OnTouchListener {
 
     companion object {
-        private val log = LogCategory("${App1.tagPrefix}/MyService")
-
-        private var refService: WeakReference<MyService>? = null
-
-        fun getService() = refService?.get()
+        private val log = LogCategory("${App1.tagPrefix}/CaptureServiceStill")
     }
 
     private val context = this
@@ -74,7 +75,6 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
         serviceJob = Job()
-        refService = WeakReference(this)
 
         super.onCreate()
         App1.prepareAppState(context)
@@ -125,7 +125,6 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
     }
 
     override fun onDestroy() {
-        refService = null
         ActMain.getActivity()?.showButton()
         serviceJob.cancel()
         Capture.release()
@@ -161,13 +160,13 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         layoutParam.x = clipInt(
             0,
             dm.widthPixels - buttonSize,
-            Pref.fpCameraButtonX(App1.pref).dp2px(dm)
+            fpCameraButtonX(App1.pref).dp2px(dm)
         )
 
         layoutParam.y = clipInt(
             0,
             dm.heightPixels - buttonSize,
-            Pref.fpCameraButtonY(App1.pref).dp2px(dm)
+            fpCameraButtonY(App1.pref).dp2px(dm)
         )
     }
 
@@ -207,8 +206,8 @@ class MyService : Service(), CoroutineScope, View.OnClickListener, View.OnTouchL
         if (save) {
             val dm = resources.displayMetrics
             App1.pref.edit()
-                .put(Pref.fpCameraButtonX, layoutParam.x.px2dp(dm))
-                .put(Pref.fpCameraButtonY, layoutParam.y.px2dp(dm))
+                .put(fpCameraButtonX, layoutParam.x.px2dp(dm))
+                .put(fpCameraButtonY, layoutParam.y.px2dp(dm))
                 .apply()
         }
         windowManager.updateViewLayout(viewRoot, layoutParam)

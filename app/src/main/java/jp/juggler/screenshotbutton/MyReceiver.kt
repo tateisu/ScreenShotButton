@@ -11,7 +11,7 @@ class MyReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, data: Intent?) {
         when(data?.action){
-            ACTION_RUNNING_DELETE-> context.stopService(Intent(context,MyService::class.java))
+            ACTION_RUNNING_DELETE-> context.stopService(Intent(context,CaptureServiceStill::class.java))
         }
     }
 }

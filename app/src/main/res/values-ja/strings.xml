@@ -18,4 +18,7 @@
     <string name="not_selected">未選択</string>
     <string name="overlay_button_desc">撮影ボタンはドラッグで移動できます。\nAndroid 10+のシステムジェスチャーナビゲーションが有効な場合、ボタンを画面端に置くと反応が悪い場合があります。</string>
     <string name="reset_position">位置を初期化</string>
+    <string name="capture_button_still">Capture button (Still)</string>
+    <string name="still_settings">Still settings</string>
+    <string name="capture_button_video">Capture button (Video)</string>
 </resources>

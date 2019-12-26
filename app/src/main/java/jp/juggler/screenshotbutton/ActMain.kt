@@ -37,15 +37,20 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         fun getActivity() = refActivity?.get()
 
-        private fun isServiceAlive(): Boolean =
-            MyService.getService() != null
+        private fun isServiceAliveStill(): Boolean =
+            CaptureServiceStill.getService() != null
+
+        private fun isServiceAliveVideo(): Boolean =
+            CaptureServiceVideo.getService() != null
     }
 
-    private lateinit var btnStartStop: Button
+    private lateinit var btnStartStopStill: Button
+    private lateinit var btnStartStopVideo: Button
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
 
-    private var timeStartButtonTapped = 0L
+    private var timeStartButtonTappedStill = 0L
+    private var timeStartButtonTappedVideo = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         refActivity = WeakReference(this)
@@ -81,30 +86,48 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         if (continueDispatch) {
             dispatch()
         } else {
-            timeStartButtonTapped = 0L
+            timeStartButtonTappedStill = 0L
+            timeStartButtonTappedVideo = 0L
         }
     }
 
     override fun onClick(v: View?) {
-        timeStartButtonTapped = 0L
+        timeStartButtonTappedStill = 0L
+        timeStartButtonTappedVideo = 0L
         when (v?.id) {
             R.id.btnSaveFolder ->
                 openSaveTreeUriChooser()
 
-            R.id.btnStartStop ->
-                if (isServiceAlive()) {
-                    stopService(Intent(this, MyService::class.java))
+            R.id.btnStartStopStill ->
+                if (isServiceAliveStill()) {
+                    stopService(Intent(this, CaptureServiceStill::class.java))
                 } else {
-                    timeStartButtonTapped = SystemClock.elapsedRealtime()
+                    timeStartButtonTappedStill = SystemClock.elapsedRealtime()
                     dispatch()
                 }
 
-            R.id.btnResetPosition -> {
+            R.id.btnResetPositionStill -> {
                 App1.pref.edit()
-                    .remove(Pref.fpCameraButtonX)
-                    .remove(Pref.fpCameraButtonY)
+                    .remove(Pref.fpCameraButtonXStill)
+                    .remove(Pref.fpCameraButtonYStill)
                     .apply()
-                MyService.getService()?.reloadPosition()
+                CaptureServiceStill.getService()?.reloadPosition()
+            }
+
+            R.id.btnStartStopVideo ->
+                if (isServiceAliveVideo()) {
+                    stopService(Intent(this, CaptureServiceVideo::class.java))
+                } else {
+                    timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
+                    dispatch()
+                }
+
+            R.id.btnResetPositionVideo -> {
+                App1.pref.edit()
+                    .remove(Pref.fpCameraButtonXVideo)
+                    .remove(Pref.fpCameraButtonYVideo)
+                    .apply()
+                CaptureServiceVideo.getService()?.reloadPosition()
             }
         }
     }
@@ -123,12 +146,15 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         (findViewById<View>(R.id.svRoot).layoutParams as? ViewGroup.MarginLayoutParams)
             ?.marginEnd = remain
 
-        btnStartStop = findViewById(R.id.btnStartStop)
+        btnStartStopStill = findViewById(R.id.btnStartStopStill)
+        btnStartStopVideo = findViewById(R.id.btnStartStopVideo)
 
         arrayOf(
-            btnStartStop,
+            btnStartStopStill,
+            btnStartStopVideo,
             findViewById<View>(R.id.btnSaveFolder),
-            findViewById<View>(R.id.btnResetPosition)
+            findViewById<View>(R.id.btnResetPositionStill),
+            findViewById<View>(R.id.btnResetPositionVideo)
         ).forEach {
             it?.setOnClickListener(this)
         }
@@ -172,8 +198,15 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     // サービスからも呼ばれる
     fun showButton() {
         if (isDestroyed) return
-        btnStartStop.setText(
-            if (isServiceAlive()) {
+        btnStartStopStill.setText(
+            if (isServiceAliveStill()) {
+                R.string.stop
+            } else {
+                R.string.start
+            }
+        )
+        btnStartStopVideo.setText(
+            if (isServiceAliveVideo()) {
                 R.string.stop
             } else {
                 R.string.start
@@ -188,12 +221,26 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         if (!prepareSaveTreeUri()) return
 
-        if (timeStartButtonTapped > 0L) {
+        if (timeStartButtonTappedStill > 0L) {
 
             if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
 
-            timeStartButtonTapped = 0L
-            ContextCompat.startForegroundService(this, Intent(this, MyService::class.java))
+            timeStartButtonTappedStill = 0L
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, CaptureServiceStill::class.java)
+            )
+        }
+
+        if (timeStartButtonTappedVideo > 0L) {
+
+            if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
+
+            timeStartButtonTappedVideo = 0L
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, CaptureServiceVideo::class.java)
+            )
         }
     }
 

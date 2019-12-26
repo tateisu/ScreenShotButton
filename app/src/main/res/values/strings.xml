@@ -19,4 +19,7 @@
     <string name="not_selected">Not selected</string>
     <string name="overlay_button_desc">You can move the overlay button by dragging.\nNotice if Android 10+ System Gesture Navigation is enabled, the buttons on the edge may not respond.</string>
     <string name="reset_position">Reset position</string>
+    <string name="capture_button_still">Capture button (Still)</string>
+    <string name="still_settings">Still settings</string>
+    <string name="capture_button_video">Capture button (Video)</string>
 </resources>
