@@ -3,8 +3,11 @@ package jp.juggler.util
 import android.app.AppOpsManager
 import android.content.Context
 import android.graphics.*
+import android.media.MediaCodec
+import android.net.Uri
 import android.os.Binder.getCallingUid
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -138,3 +141,25 @@ fun runOnMainThread(block: () -> Unit) {
         Handler(mainLooper).post { block() }
     }
 }
+
+fun getScreenSize(context: Context) = Point().also {
+    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    windowManager.defaultDisplay.getRealSize(it)
+}
+
+fun MediaCodec.suspend(suspend: Boolean) =
+    setParameters(Bundle().apply {
+        putInt(
+            MediaCodec.PARAMETER_KEY_SUSPEND,
+            if (suspend) 1 else 0
+        )
+    })
+
+fun String?.toUriOrNull() =
+    if (this?.isEmpty() != false) {
+        null
+    } else try {
+        Uri.parse(this)
+    } catch (ex: Throwable) {
+        null
+    }

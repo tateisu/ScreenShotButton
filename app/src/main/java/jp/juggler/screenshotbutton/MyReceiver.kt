@@ -23,10 +23,22 @@ class MyReceiver : BroadcastReceiver() {
                 context.stopService(Intent(context, CaptureServiceStill::class.java))
             ACTION_RUNNING_DELETE_VIDEO ->
                 context.stopService(Intent(context, CaptureServiceVideo::class.java))
-            ACTION_RUNNING_VIDEO_START ->
-                CaptureServiceVideo.getService()?.captureStart()
-            ACTION_RUNNING_VIDEO_STOP ->
-                CaptureServiceVideo.getService()?.captureStop()
+            ACTION_RUNNING_VIDEO_START ->{
+                val service = CaptureServiceVideo.getService()
+                if(service==null){
+                    log.e("service is null.")
+                }else{
+                    service.captureStart()
+                }
+            }
+            ACTION_RUNNING_VIDEO_STOP ->{
+                val service = CaptureServiceVideo.getService()
+                if(service==null){
+                    log.e("service is null.")
+                }else{
+                    service.captureStop()
+                }
+            }
         }
     }
 }

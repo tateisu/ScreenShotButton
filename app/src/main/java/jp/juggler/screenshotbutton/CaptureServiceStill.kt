@@ -1,10 +1,12 @@
 package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
-import jp.juggler.util.runOnMainThread
 import java.lang.ref.WeakReference
 
 @SuppressLint("InflateParams")
@@ -31,6 +33,22 @@ class CaptureServiceStill : CaptureServiceBase(
         // 順序に注意。常にrefServiceの変更が先
         refService = null
         super.onDestroy()
+    }
+
+    override fun createNotificationChannel() :String{
+        if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_STILL,
+                    getString(R.string.capture_standby_still),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = getString(R.string.capture_standby_description_still)
+                }
+            )
+        }
+
+        return NOTIFICATION_CHANNEL_STILL
     }
 
     override fun arrangeNotification(
@@ -76,12 +94,9 @@ class CaptureServiceStill : CaptureServiceBase(
         return intArrayOf(0)
     }
 
-    override suspend fun performCapture(timeClick: Long) {
-        val (documentUri, _, _) = Capture.capture(context, timeClick)
-        runOnMainThread {
-            if (!isDestroyed && Pref.bpShowPostView(App1.pref)) {
-                ActViewer.open(context, documentUri)
-            }
+    override fun afterCapture(captureResult: Capture.CaptureResult){
+        if (!isDestroyed && Pref.bpShowPostView(App1.pref)) {
+            ActViewer.open(context, captureResult.documentUri)
         }
     }
 }

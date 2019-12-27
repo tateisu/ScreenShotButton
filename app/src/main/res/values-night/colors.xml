@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#008577</color>
-    <color name="colorPrimaryDark">#00574B</color>
-    <color name="colorAccent">#D81B60</color>
+    <color name="colorPrimary">#888888</color>
+    <color name="colorPrimaryDark">#333333</color>
+    <color name="colorAccent">#00ff9a</color>
     <color name="colorLauncherIconBackground">#eeeeee</color>
     <color name="colorLauncherIconForeground">#222222</color>
     <color name="colorText">#FFF</color>
+    <color name="colorTextSecondary">#AAA</color>
+    <color name="colorTextError">#FF0000</color>
     <color name="colorSettingBorder">#777777</color>
     <color name="colorRippleEffect">#888888</color>
 

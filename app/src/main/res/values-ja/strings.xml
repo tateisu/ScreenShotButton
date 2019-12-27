@@ -10,9 +10,12 @@
     <string name="close">閉じる</string>
     <string name="back">戻る</string>
 
-    <string name="capture_button_still">撮影ボタンの表示(静止画)</string>
-    <string name="capture_button_video">撮影ボタンの表示(動画)</string>
+    <string name="capture_button">撮影ボタンの表示</string>
+    <string name="still">静止画</string>
+    <string name="video">動画</string>
+
     <string name="overlay_button_desc">撮影ボタンはドラッグで移動できます。\nAndroid 10+のシステムジェスチャーナビゲーションが有効な場合、ボタンを画面端に置くと反応が悪い場合があります。</string>
+    <string name="video_settings_desc">設定によっては動画の圧縮処理が追い付かずに記録が止まってしまいます。</string>
 
     <string name="capture_standby_still">撮影待機(静止画)</string>
     <string name="capture_standby_description_still">画面に撮影ボタンを表示しています</string>
@@ -34,12 +37,14 @@
     <string name="please_allow_overlay_permission">他のアプリの上に表示する権限を許可してください。\nその後、このアプリの画面に戻ってきてください。</string>
     <string name="please_select_save_folder">保存先のフォルダを選択してください。\n\n全てのストレージを見るには右上のメニューで「内部ストレージを表示」を選んでから左上のメニューを開いてください。\n\nまた、右上のメニューで新しいフォルダを作成することもできます。</string>
 
-    <string name="still_settings">Still settings</string>
+    <string name="still_settings">静止画の設定</string>
+    <string name="video_settings">動画の設定</string>
+    <string name="other_settings">その他の設定</string>
+
     <string name="save_png">PNG形式で保存 (すごく遅い)</string>
     <string name="show_post_view_after_capture">撮影後にポストビューを表示する</string>
-    <string name="video_settings">Video settings</string>
-    <string name="codec">Cocec</string>
-    <string name="frame_rate">Frame rate(fps)</string>
-    <string name="bit_rate">Bit rate(bps)</string>
+    <string name="codec">コーデック</string>
+    <string name="frame_rate">フレームレート</string>
+    <string name="bit_rate">ビットレート(bps)</string>
     <string name="color_format">Color format</string>
 </resources>

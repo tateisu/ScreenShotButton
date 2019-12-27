@@ -12,10 +12,12 @@
     <string name="back">Back</string>
     <string name="edit">Edit</string>
 
-    <string name="capture_button_still">Capture button (Still)</string>
-    <string name="capture_button_video">Capture button (Video, Android 8+)</string>
+    <string name="capture_button">Showing capture button</string>
+    <string name="still">Still</string>
+    <string name="video">Video</string>
 
     <string name="overlay_button_desc">You can move the overlay button by dragging.\nNotice if Android 10+ System Gesture Navigation is enabled, the buttons on the edge may not respond.</string>
+    <string name="video_settings_desc">Depending on the settings, capturing may stop because the video compression process can not keep up real time.</string>
 
     <string name="capture_standby_still">Capture standby (Still)</string>
     <string name="capture_standby_description_still">Showing overlay button on the screen.</string>
@@ -38,10 +40,12 @@
     <string name="please_select_save_folder">Please select save folder.\n\nNote: To show all storage, please open menu on top-right corner, select "show storage", then open menu on top-left corner and select storage.\n\nAlso you can create new folder from menu on top-right corner.</string>
 
     <string name="still_settings">Still settings</string>
-    <string name="save_png">Save as PNG file (very slow)</string>
-    <string name="show_post_view_after_capture">Show post view after capture</string>
     <string name="video_settings">Video settings</string>
-    <string name="codec">Cocec</string>
+    <string name="other_settings">Other settings</string>
+
+    <string name="show_post_view_after_capture">Show post view after capture</string>
+    <string name="save_png">Save as PNG file (very slow)</string>
+    <string name="codec">Codec</string>
     <string name="frame_rate">Frame rate</string>
     <string name="bit_rate">Bit rate(bps)</string>
     <string name="color_format">Color format</string>

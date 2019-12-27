@@ -8,7 +8,6 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.Point
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.*
@@ -25,22 +24,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.lang.ref.WeakReference
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.math.min
+import android.media.MediaCodec
+import android.os.Bundle
 
 
 object Capture {
     private val log = LogCategory("${App1.tagPrefix}/Capture")
 
     private const val ERROR_BLANK_IMAGE = "captured image is blank."
-    private const val BITRAGE_MIN = 100000
+    private const val ERROR_STOP_BY_USER = "stop by user control."
 
     private enum class MediaProjectionState {
         Off,
@@ -61,8 +59,8 @@ object Capture {
     private var mediaProjectionAddr = AtomicReference<String?>(null)
     private var mediaProjectionState = MediaProjectionState.Off
 
-    private var videoStopper: WeakReference<Continuation<Long>>? = null
-
+    private val videoStopReason = AtomicReference<Throwable>(null)
+    private var lastEncoderOutput = 0L
 
     // アプリ起動時に一度だけ実行する
     fun onInitialize(context: Context) {
@@ -169,6 +167,10 @@ object Capture {
                     super.onStop()
                     log.d("MediaProjection onStop. addr=$addr")
                     mediaProjectionAddr.compareAndSet(addr, null)
+                    videoStopReason.compareAndSet(
+                        null,
+                        java.lang.RuntimeException("MediaProjection stopped.")
+                    )
                 }
             },
             handler
@@ -211,11 +213,13 @@ object Capture {
 
     ////////////////////////////////////////////////////////////
 
-    private var videoCodecInfo: MediaCodecInfoAndType = MediaCodecInfoAndType.LIST.first()
-    private var videoFrameRate:Int =0
-    private var videoBitRate:Int =0
+    private var videoCodecInfo: MediaCodecInfoAndType? = null
+    private var videoFrameRate: Int = 0
+    private var videoBitRate: Int = 0
 
-    fun createVideoCodec(width:Int,height:Int):MediaCodec{
+    fun createVideoCodec(width: Int, height: Int): MediaCodec {
+        val videoCodecInfo = videoCodecInfo ?: error("videoCodecInfo is null.")
+
         val mimeType = videoCodecInfo.type
         val format = MediaFormat.createVideoFormat(mimeType, width, height)
 
@@ -233,10 +237,11 @@ object Capture {
         )
         format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 0)
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+
         // 1 seconds between I-frames
 
         // Create a MediaCodec encoder and configure it. Get a Surface we can use for recording into.
-        return  MediaCodec.createEncoderByType(mimeType).apply{
+        return MediaCodec.createEncoderByType(mimeType).apply {
             configure(
                 format,
                 null,
@@ -247,32 +252,31 @@ object Capture {
     }
 
     // load video settings from pref to variable.
-    fun loadVideoSetting(pref:SharedPreferences) {
+    fun loadVideoSetting(context: Context, pref: SharedPreferences) {
         val sv = Pref.spCodec(pref)
-        videoCodecInfo = MediaCodecInfoAndType.LIST.find{
+        val videoCodecInfo = MediaCodecInfoAndType.getList(context).find {
             "${it.type} ${it.info.name}" == sv
         } ?: error("Can't find specified codec. $sv")
+        this.videoCodecInfo = videoCodecInfo
 
         videoFrameRate = Pref.spFrameRate(pref).toIntOrNull()
-            ?:error("(Frame rate) Please input integer.")
-        var range =  videoCodecInfo.vc.supportedFrameRates
-        if( !range.contains(videoFrameRate)   )
+            ?: error("(Frame rate) Please input integer.")
+        var range = videoCodecInfo.vc.supportedFrameRates
+        if (!range.contains(videoFrameRate))
             error("(Frame rate) $videoFrameRate is not in ${range.lower}..${range.upper}.")
 
         videoBitRate = Pref.spBitRate(pref).toIntOrNull()
-            ?:error("(Bit rate) Please input integer.")
+            ?: error("(Bit rate) Please input integer.")
         range = videoCodecInfo.vc.bitrateRange
-        if( ! range.contains(videoBitRate) )
+        if (!range.contains(videoBitRate))
             error("(Bit rate) $videoBitRate is not in ${range.lower}..${range.upper}.")
 
-        val realSize = Point()
-        windowManager.defaultDisplay.getRealSize(realSize)
-        val longside = max( realSize.x,realSize.y)
-        if( longside > videoCodecInfo.maxSize)
+        val realSize = getScreenSize(context)
+        val longside = max(realSize.x, realSize.y)
+        if (longside > videoCodecInfo.maxSize)
             error("current screen size is ${longside}px, but selected video codec has size limit ${videoCodecInfo.maxSize}px.")
 
-        log.d("defaultDisplay.getRealSize ${realSize.x},${realSize.y}")
-        val codec = createVideoCodec(realSize.x,realSize.y)
+        val codec = createVideoCodec(realSize.x, realSize.y)
         codec.release()
     }
 
@@ -312,9 +316,7 @@ object Capture {
 
 
         init {
-            val realSize = Point()
-            windowManager.defaultDisplay.getRealSize(realSize)
-            log.d("defaultDisplay.getRealSize ${realSize.x},${realSize.y}")
+            val realSize = getScreenSize(context)
 
             screenWidth = realSize.x
             screenHeight = realSize.y
@@ -349,6 +351,7 @@ object Capture {
         @TargetApi(26)
         suspend fun captureVideo(): CaptureResult {
 
+
             val mediaProjection = mediaProjection
                 ?: error("mediaProjection is null.")
 
@@ -360,15 +363,20 @@ object Capture {
                 generateBasename(),
                 mimeTypeFile
             )
+            bench("generateDocument")
 
             try {
                 context.contentResolver.openFileDescriptor(documentUri, "w")
                     ?.use { parcelFileDescriptor ->
                         try {
+                            bench("openFileDescriptor")
 
-                            val videoCodec = createVideoCodec(screenWidth,screenHeight)
+                            videoStopReason.set(null)
 
-                                this.videoCodec = videoCodec
+                            val videoCodec = createVideoCodec(screenWidth, screenHeight)
+                            bench("createVideoCodec")
+
+                            this.videoCodec = videoCodec
                             videoCodec.setCallback(object : MediaCodec.Callback() {
 
                                 override fun onError(
@@ -376,7 +384,7 @@ object Capture {
                                     ex: MediaCodec.CodecException
                                 ) {
                                     log.e(ex, "MediaCodec.Callback onError. codec=${codec.name}")
-                                    videoStopper?.get()?.resumeWithException(ex)
+                                    videoStopReason.compareAndSet(null, ex)
                                 }
 
                                 override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
@@ -401,7 +409,7 @@ object Capture {
                                             log.w("format changed twice")
                                         }
                                     } catch (ex: Throwable) {
-                                        videoStopper?.get()?.resumeWithException(ex)
+                                        videoStopReason.compareAndSet(null, ex)
                                     }
                                 }
 
@@ -410,7 +418,9 @@ object Capture {
                                     index: Int,
                                     info: MediaCodec.BufferInfo
                                 ) {
-                                    log.d("MediaCodec.Callback onOutputBufferAvailable codec=${codec.name}, index=$index, info=$info")
+                                    //大量に出る log.d("onOutputBufferAvailable: index=$index, presentationTimeUs=${info.presentationTimeUs}")
+
+                                    lastEncoderOutput = SystemClock.elapsedRealtime()
                                     try {
                                         val encodedData = videoCodec.getOutputBuffer(index)
                                             ?: error("getOutputBuffer($index) is null ")
@@ -435,19 +445,37 @@ object Capture {
                                             videoCodec.releaseOutputBuffer(index, false)
                                         }
                                     } catch (ex: Throwable) {
-                                        videoStopper?.get()?.resumeWithException(ex)
+                                        videoStopReason.compareAndSet(null, ex)
                                     }
                                 }
                             })
 
                             inputSurface = videoCodec.createInputSurface()
+                            bench("videoCodec.createInputSurface")
 
                             videoCodec.start()
+                            bench("videoCodec.start")
 
                             muxer = MediaMuxer(
                                 parcelFileDescriptor.fileDescriptor,
                                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
                             )
+                            bench("MediaMuxer ctor")
+
+                            var virtualDisplayResumed = false
+                            fun setResumed(resumed: Boolean) {
+                                lastEncoderOutput = SystemClock.elapsedRealtime()
+                                virtualDisplayResumed = resumed
+                                runOnMainThread {
+                                    try {
+                                        videoCodec.suspend(!resumed)
+                                    }catch(ex:Throwable){
+                                        log.e(ex,"suspend failed.")
+                                    }
+                                }
+                            }
+
+                            setResumed(false)
 
                             // Start the video input.
                             virtualDisplay = mediaProjection.createVirtualDisplay(
@@ -457,20 +485,63 @@ object Capture {
                                 densityDpi,
                                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                                 inputSurface,
-                                null /* callback */,
-                                null /* handler */
+                                object : VirtualDisplay.Callback() {
+                                    override fun onResumed() {
+                                        super.onResumed()
+                                        log.e("VirtualDisplay.Callback onResumed")
+                                        setResumed(true)
+                                    }
+
+                                    override fun onPaused() {
+                                        super.onPaused()
+                                        log.e("VirtualDisplay.Callback onPaused")
+                                        setResumed(false)
+                                    }
+
+                                    override fun onStopped() {
+                                        super.onStopped()
+                                        log.e("VirtualDisplay.Callback onStopped")
+                                        videoStopReason.compareAndSet(
+                                            null,
+                                            RuntimeException("VirtualDisplay onStopped")
+                                        )
+                                    }
+                                },
+                                handler
                             )
 
+                            bench("createVirtualDisplay")
+
                             // TODO : 画面オフとか画面回転とか画面のリサイズとかが発生したらどうなる？
+                            var maxDelay = 0L
+                            while (true) {
+                                if (virtualDisplayResumed) {
+                                    val delay = SystemClock.elapsedRealtime() - lastEncoderOutput
+                                    if (delay > maxDelay) {
+                                        maxDelay = delay
+                                        log.d("delay: $maxDelay")
+                                    }
+                                    if (delay >= 20000L) {
+                                        videoStopReason.compareAndSet(
+                                            null,
+                                            RuntimeException("encoder output timeout.")
+                                        )
+                                    }
+                                }
 
-                            val timeStopRequested = suspendCoroutine<Long> {
-                                videoStopper = WeakReference(it)
+                                val stopReason = videoStopReason.get()
+                                if (stopReason != null) {
+                                    if (stopReason.message?.contains(ERROR_STOP_BY_USER) == true) {
+                                        log.e("cancelled by user.")
+                                    } else {
+                                        log.eToast(context, stopReason, "error.")
+                                    }
+                                    break
+                                }
+
+                                delay(333L)
                             }
-                            videoStopper = null
-
-                            val delay = SystemClock.elapsedRealtime() - timeStopRequested
-                            log.d("stop recording. delay=${delay}ms")
-
+                            bench("loop end.")
                         } finally {
                             releaseEncoders()
                         }
@@ -713,24 +784,16 @@ object Capture {
         isVideo: Boolean = false
     ): CaptureResult {
         isCapturing = true
-        runOnMainThread {
-            CaptureServiceStill.getService()?.showButton()
-            CaptureServiceVideo.getService()?.showButton()
-        }
+        CaptureServiceBase.showButtonAll()
         try {
             return CaptureEnv(context, timeClick, isVideo).capture()
         } finally {
             isCapturing = false
-            runOnMainThread {
-                CaptureServiceStill.getService()?.showButton()
-                CaptureServiceVideo.getService()?.showButton()
-            }
+            CaptureServiceBase.showButtonAll()
         }
     }
 
     fun stopVideo() {
-        videoStopper?.get()?.resume(SystemClock.elapsedRealtime())
+        videoStopReason.compareAndSet(null, RuntimeException(ERROR_STOP_BY_USER))
     }
-
-
 }

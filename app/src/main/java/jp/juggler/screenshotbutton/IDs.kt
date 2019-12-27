@@ -21,7 +21,9 @@ const val API_SYSTEM_GESTURE_EXCLUSION = 29
 
  */
 
-const val NOTIFICATION_CHANNEL_RUNNING = "Capture Standby"
+const val NOTIFICATION_CHANNEL_STILL = "Capture Standby"
+const val NOTIFICATION_CHANNEL_VIDEO = "Capture Standby(Video)"
+
 const val NOTIFICATION_ID_RUNNING_STILL = 1
 const val NOTIFICATION_ID_RUNNING_VIDEO = 2
 

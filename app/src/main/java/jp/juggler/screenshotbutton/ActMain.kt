@@ -48,7 +48,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private lateinit var btnStartStopVideo: Button
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
-    private lateinit var tvCodec :TextView
+    private lateinit var tvCodec: TextView
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
@@ -120,10 +120,10 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 if (isServiceAliveVideo()) {
                     stopService(Intent(this, CaptureServiceVideo::class.java))
                 } else {
-                    try{
-                        Capture.loadVideoSetting(App1.pref)
-                    }catch(ex:Throwable){
-                        log.eToast(this,ex,"Video setting error.")
+                    try {
+                        Capture.loadVideoSetting(this, App1.pref)
+                    } catch (ex: Throwable) {
+                        log.eToast(this, ex, "Video setting error.")
                         return
                     }
                     timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
@@ -138,15 +138,15 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 CaptureServiceVideo.getService()?.reloadPosition()
             }
 
-            R.id.btnCodecEdit->{
+            R.id.btnCodecEdit -> {
                 val ad = ActionsDialog()
-                for( codec in MediaCodecInfoAndType.LIST){
-                    ad.addAction(codec.toString()){
-                        App1.pref.edit().put(Pref.spCodec,codec.id).apply()
+                for (codec in MediaCodecInfoAndType.getList(this)) {
+                    ad.addAction(codec.toString()) {
+                        App1.pref.edit().put(Pref.spCodec, codec.id).apply()
                         showCurrentCodec()
                     }
                 }
-                ad.show(this,getString(R.string.codec))
+                ad.show(this, getString(R.string.codec))
             }
         }
     }
@@ -217,19 +217,19 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             ?: getString(R.string.not_selected)
     }
 
-    private fun showCurrentCodec(){
-        val codecList = MediaCodecInfoAndType.LIST
-        if(codecList.isEmpty()) {
+    private fun showCurrentCodec() {
+        val codecList = MediaCodecInfoAndType.getList(this)
+        if (codecList.isEmpty()) {
             log.eToast(this, false, "Oops! this device has no MediaCodec!!")
             return
         }
         val id = Pref.spCodec(App1.pref)
-        var codec = codecList.find{ it.id == id }
-        if( codec ==null){
+        var codec = codecList.find { it.id == id }
+        if (codec == null) {
             codec = codecList[0]
-            App1.pref.edit().put(Pref.spCodec,codec.id).apply()
+            App1.pref.edit().put(Pref.spCodec, codec.id).apply()
         }
-        tvCodec.text= codec.toString()
+        tvCodec.text = codec.toString()
     }
 
     // サービスからも呼ばれる
@@ -242,8 +242,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 R.string.start
             }
         )
-
-        btnStartStopVideo.isEnabled = MediaCodecInfoAndType.LIST.isNotEmpty() && Build.VERSION.SDK_INT >= API_MEDIA_MUXER_FILE_DESCRIPTER
         btnStartStopVideo.setText(
             if (isServiceAliveVideo()) {
                 R.string.stop
@@ -252,10 +250,25 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             }
         )
 
+        val isCapturing = Capture.isCapturing
+
+        btnStartStopStill.isEnabledWithColor = !isCapturing
+
+        btnStartStopVideo.isEnabledWithColor = !isCapturing &&
+                MediaCodecInfoAndType.getList(this).isNotEmpty() &&
+                Build.VERSION.SDK_INT >= API_MEDIA_MUXER_FILE_DESCRIPTER
+
     }
 
+    private var Button.isEnabledWithColor : Boolean
+        get() = isEnabled
+        set(value){
+            isEnabled = value
+            alpha = if(isEnabled) 1f else 0.5f
+        }
+
     // 権限のチェックと取得インタラクションの開始
-// 画面表示時や撮影ボタンの表示開始時に呼ばれる
+    // 画面表示時や撮影ボタンの表示開始時に呼ばれる
     private fun dispatch() {
         if (!prepareOverlay()) return
 
@@ -284,8 +297,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-///////////////////////////////////////////////////////
-// 保存フォルダの選択と書き込み権限
+    ///////////////////////////////////////////////////////
+    // 保存フォルダの選択と書き込み権限
 
     private fun openSaveTreeUriChooser() {
         startActivityForResult(
@@ -305,14 +318,18 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun prepareSaveTreeUri(): Boolean {
-        val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
-        val uriPermission =
-            contentResolver.persistedUriPermissions.find { it.uri?.toString() == saveTreeUri }
-        if (uriPermission != null) return true
+        val treeUri = Pref.spSaveTreeUri(App1.pref).toUriOrNull()
+        if (treeUri != null &&
+            pathFromDocumentUri(this, treeUri) != null &&
+            contentResolver.persistedUriPermissions.find { it.uri == treeUri } != null
+        ) {
+            return true
+        }
 
         AlertDialog.Builder(this)
             .setMessage(R.string.please_select_save_folder)
-            .setPositiveButton(R.string.ok) { _, _ ->
+            .setPositiveButton(R.string.ok)
+            { _, _ ->
                 openSaveTreeUriChooser()
             }
             .setNegativeButton(R.string.cancel, null)
@@ -340,8 +357,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return false
     }
 
-/////////////////////////////////////////////////////////////////
-// オーバーレイ表示の権限
+    /////////////////////////////////////////////////////////////////
+    // オーバーレイ表示の権限
 
     @SuppressLint("InlinedApi")
     private fun prepareOverlay(): Boolean {
@@ -367,8 +384,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return canDrawOverlaysCompat(this)
     }
 
-///////////////////////////////////////////////////
-// ダイアログの多重表示を防止する
+    ///////////////////////////////////////////////////
+    // ダイアログの多重表示を防止する
 
     private var lastDialog: WeakReference<Dialog>? = null
 

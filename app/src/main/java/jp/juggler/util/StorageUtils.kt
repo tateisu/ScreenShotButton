@@ -22,6 +22,42 @@ private fun Cursor.getStringOrNull(idx: Int) = when {
     else -> getString(idx)
 }
 
+class FindMediaResult(val uri: Uri, val mimeType: String?)
+
+fun findMedia(context: Context, uri: Uri): FindMediaResult? {
+    return try {
+        context.contentResolver.query(
+            uri,
+            arrayOf(
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.MIME_TYPE
+            ),
+            null,
+            null,
+            null
+        )
+            ?.use { cursor ->
+                if (cursor.moveToNext()) {
+                    val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+                    val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
+                    FindMediaResult(
+                        ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            cursor.getLong(idxId)
+                        ),
+                        cursor.getStringOrNull(idxMimeType)
+                    )
+                } else {
+                    log.eToast(context, false, "can't find content uri.")
+                    null
+                }
+            }
+    } catch (ex: Throwable) {
+        log.eToast(context, ex, "findMedia() failed. $uri")
+        null
+    }
+}
+
 fun isExternalStorageDocument(uri: Uri) =
     "com.android.externalstorage.documents" == uri.authority
 
@@ -111,46 +147,11 @@ fun pathFromDocumentUri(context: Context, uri: Uri): String? {
             else->error("pathFromDocumentUri: not supported $uri")
         }
     } catch (ex: Throwable) {
-        log.eToast(context, ex, "pathFromDocumentUri failed.")
+        log.e( ex, "pathFromDocumentUri failed. $uri")
         null
     }
 }
 
-class FindMediaResult(val uri: Uri, val mimeType: String?)
-
-fun findMedia(context: Context, uri: Uri): FindMediaResult? {
-    return try {
-        context.contentResolver.query(
-            uri,
-            arrayOf(
-                MediaStore.MediaColumns._ID,
-                MediaStore.MediaColumns.MIME_TYPE
-            ),
-            null,
-            null,
-            null
-        )
-            ?.use { cursor ->
-                if (cursor.moveToNext()) {
-                    val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
-                    val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
-                    FindMediaResult(
-                        ContentUris.withAppendedId(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                            cursor.getLong(idxId)
-                        ),
-                        cursor.getStringOrNull(idxMimeType)
-                    )
-                } else {
-                    log.eToast(context, false, "can't find content uri.")
-                    null
-                }
-            }
-    } catch (ex: Throwable) {
-        log.eToast(context, ex, "findMedia() failed. $uri")
-        null
-    }
-}
 
 fun generateDocument(
     context: Context,

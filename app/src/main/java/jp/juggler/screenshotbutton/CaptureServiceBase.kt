@@ -18,6 +18,7 @@ import androidx.core.app.NotificationCompat
 import jp.juggler.util.*
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
+import java.util.*
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -32,13 +33,39 @@ abstract class CaptureServiceBase(
     companion object {
         private val log = LogCategory("${App1.tagPrefix}/CaptureServiceStill")
 
-        private var captureJob : WeakReference<Job>? = null
+        private var captureJob: WeakReference<Job>? = null
+
+        private fun isCapturing() = captureJob?.get()?.isActive == true
+
+        private val serviceList = LinkedList<WeakReference<CaptureServiceBase>>()
+
+        private fun addActiveService(service:CaptureServiceBase){
+            serviceList.add(WeakReference(service))
+        }
+
+        private fun removeActiveService(service:CaptureServiceBase){
+            val it = serviceList.iterator()
+            while(it.hasNext()){
+                val ref = it.next()
+                val s = ref.get()
+                if( s==null ||s==service) it.remove()
+            }
+        }
+
+        private fun getServices()= serviceList.mapNotNull { it.get() }
+
+        fun showButtonAll(){
+            runOnMainThread {
+                getServices().forEach { it.showButton() }
+                ActMain.getActivity()?.showButton()
+            }
+        }
     }
 
     protected val context: Context
         get() = this
 
-    private lateinit var notificationManager: NotificationManager
+    protected lateinit var notificationManager: NotificationManager
     private lateinit var windowManager: WindowManager
 
     private lateinit var btnCamera: MyImageButton
@@ -55,7 +82,8 @@ abstract class CaptureServiceBase(
     private var maxY = 0
     private var buttonSize = 0
 
-    @Volatile protected var isDestroyed = false
+    @Volatile
+    protected var isDestroyed = false
 
 //    private lateinit var serviceJob: Job
 //    override val coroutineContext: CoroutineContext
@@ -78,7 +106,7 @@ abstract class CaptureServiceBase(
 
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
-
+        addActiveService(this)
         super.onCreate()
         App1.prepareAppState(context)
 
@@ -116,28 +144,30 @@ abstract class CaptureServiceBase(
         btnCamera.windowLayoutParams = layoutParam
         windowManager.addView(viewRoot, layoutParam)
 
-        showButton()
-
-        try {
-            Capture.updateMediaProjection()
-        } catch (ex: Throwable) {
-            log.eToast(this, ex, "updateMediaProjection failed.")
-            stopSelf()
-            return
+        if (!isCapturing()) {
+            try {
+                Capture.updateMediaProjection()
+            } catch (ex: Throwable) {
+                log.eToast(this, ex, "updateMediaProjection failed.")
+                stopSelf()
+                return
+            }
         }
 
+        showButton()
         ActMain.getActivity()?.showButton()
     }
 
     override fun onDestroy() {
         log.i("onDestroy start")
         isDestroyed = true
+        removeActiveService(this)
         windowManager.removeView(viewRoot)
         stopForeground(true)
 
-        if( this is CaptureServiceVideo) Capture.stopVideo()
+        if (this is CaptureServiceVideo) Capture.stopVideo()
 
-        if( CaptureServiceStill.getService() == null && CaptureServiceVideo.getService() == null){
+        if (CaptureServiceStill.getService() == null && CaptureServiceVideo.getService() == null) {
             runBlocking {
                 captureJob?.get()?.join()
             }
@@ -157,11 +187,19 @@ abstract class CaptureServiceBase(
 
         reloadPosition()
 
-        try {
-            Capture.updateMediaProjection()
-        } catch (ex: Throwable) {
-            log.eToast(this, ex, "updateMediaProjection failed.")
-            stopSelf()
+        if (!isCapturing()) {
+            try {
+                Capture.updateMediaProjection()
+            } catch (ex: Throwable) {
+                log.eToast(this, ex, "updateMediaProjection failed.")
+                stopSelf()
+            }
+        }
+    }
+
+    override fun onClick(v: View?) {
+        when (v?.id) {
+            R.id.btnCamera -> captureStart()
         }
     }
 
@@ -199,20 +237,27 @@ abstract class CaptureServiceBase(
     //////////////////////////////////////////////
     // 撮影ボタンのドラッグ操作
 
-    private var hideByTouching = false
+    var hideByTouching = false
 
     fun showButton() {
-        if(isDestroyed) return
+        if (isDestroyed) return
+
+        val isCapturing = Capture.isCapturing
+
+        // キャプチャ中は通知を変える
+        notificationManager.notify(notificationId, createRunningNotification(isCapturing))
 
         // キャプチャ中はボタンを隠す(操作できない)
-        val isCapturing = Capture.isCapturing
-        btnCamera.vg( ! isCapturing)
+        btnCamera.vg(!isCapturing)
+
+        val hideByTouching =  (CaptureServiceStill.getService()?.hideByTouching?:false) ||
+                (CaptureServiceVideo.getService()?.hideByTouching?:false)
 
         // タッチ中かつ非ドラッグ状態ならボタンを隠す(操作はできる)
         if (hideByTouching) {
             btnCamera.background = null
             btnCamera.setImageDrawable(null)
-        }else{
+        } else {
             btnCamera.setBackgroundResource(R.drawable.btn_bg_round)
             btnCamera.setImageResource(startButtonId)
         }
@@ -228,7 +273,7 @@ abstract class CaptureServiceBase(
             if (max(abs(deltaX), abs(deltaY)) < draggingThreshold) return false
             isDragging = true
             hideByTouching = false
-            showButton()
+            showButtonAll()
         }
         layoutParam.x = clipInt(0, maxX, startLpX + deltaX.toInt())
         layoutParam.y = clipInt(0, maxY, startLpY + deltaY.toInt())
@@ -259,7 +304,7 @@ abstract class CaptureServiceBase(
 
                 isDragging = false
                 hideByTouching = true
-                showButton()
+                showButtonAll()
                 return true
             }
 
@@ -277,7 +322,7 @@ abstract class CaptureServiceBase(
             MotionEvent.ACTION_CANCEL -> {
                 if (!updateDragging(ev, save = true)) {
                     hideByTouching = false
-                    showButton()
+                    showButtonAll()
                 }
                 return true
             }
@@ -287,35 +332,20 @@ abstract class CaptureServiceBase(
 
     ///////////////////////////////////////////////////////////////
 
-    override fun onClick(v: View?) {
-        when (v?.id) {
-            R.id.btnCamera -> captureStart()
-        }
-    }
+
 
     private fun createRunningNotification(isRecording: Boolean): Notification {
 
-        if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
-            // Create the NotificationChannel
-            notificationManager.createNotificationChannel(
-                NotificationChannel(
-                    NOTIFICATION_CHANNEL_RUNNING,
-                    getString(R.string.capture_standby_still),
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = getString(R.string.capture_standby_description_still)
-                }
-            )
-        }
+        val notificationChannelId = createNotificationChannel()
 
-        return NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_RUNNING)
+        return NotificationCompat.Builder(context, notificationChannelId)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .apply {
                 val actionIndexes = arrangeNotification(this, isRecording)
                 setStyle(
-                    androidx.media.app.NotificationCompat.MediaStyle ()
-                    .setShowActionsInCompactView(*actionIndexes)
+                    androidx.media.app.NotificationCompat.MediaStyle()
+                        .setShowActionsInCompactView(*actionIndexes)
                 )
 
             }
@@ -338,39 +368,39 @@ abstract class CaptureServiceBase(
         }
 
         // don't allow other job is running.
-        if ( captureJob?.get()?.isActive == true ) {
+        if (isCapturing()) {
             log.e("captureStart(): previous capture job is not complete.")
             return
         }
 
         hideByTouching = false
 
-        notificationManager.notify(notificationId, createRunningNotification(true))
-
+        Capture.isCapturing = true
+        showButtonAll()
         captureJob = WeakReference(GlobalScope.launch(Dispatchers.IO) {
             try {
-                log.d("captureStart IO 1")
-                performCapture(timeClick)
-                log.d("captureStart IO 2")
+                val captureResult = Capture.capture(
+                    context,
+                    timeClick,
+                    isVideo = this@CaptureServiceBase is CaptureServiceVideo
+                )
+                runOnMainThread {
+                    afterCapture(captureResult)
+                }
             } catch (ex: Throwable) {
                 log.eToast(context, ex, "capture failed.")
-            } finally {
-                runOnMainThread {
-                    if (!isDestroyed) {
-                        notificationManager.notify(
-                            notificationId,
-                            createRunningNotification(false)
-                        )
-
-                        CaptureServiceStill.getService()?.showButton()
-                        CaptureServiceVideo.getService()?.showButton()
-                    }
-                }
             }
         })
     }
 
-    abstract fun arrangeNotification(builder: NotificationCompat.Builder, isRecording: Boolean) :IntArray
+    abstract fun createNotificationChannel() :String
 
-    abstract suspend fun performCapture(timeClick: Long)
+    abstract fun arrangeNotification(
+        builder: NotificationCompat.Builder,
+        isRecording: Boolean
+    ): IntArray
+
+    abstract fun afterCapture(captureResult: Capture.CaptureResult)
+
+
 }
