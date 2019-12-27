@@ -29,9 +29,10 @@ class MediaScannerTracker(
         val timeCreated = SystemClock.elapsedRealtime()
     }
 
-    val conn: MediaScannerConnection = MediaScannerConnection(context, this)
+    private var isDisposed = false
 
-    var isDisposed = false
+    private val conn = MediaScannerConnection(context, this)
+
 
     private val scanning = ArrayList<Item>()
 

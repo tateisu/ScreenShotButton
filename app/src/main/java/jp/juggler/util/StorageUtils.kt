@@ -90,58 +90,56 @@ private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): St
     }
 
 fun pathFromDocumentUri(context: Context, uri: Uri): String? {
-    try {
+    return try {
         when {
 
             uri.authority == "file" -> return uri.path
 
             isExternalStorageDocument(uri) -> {
                 val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
-                if (split.size >= 2) {
-                    val storageManager =
-                        context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-                    val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
-                        getVolumePathApi24(storageManager, split[0])
-                    } else {
-                        getVolumePathApi21(storageManager, split[0])
-                    }
-                    return "$volumePath/${split[1]}"
+                if (split.size < 2) error("document id has no semicolon.")
+                val storageManager =
+                    context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+                val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
+                    getVolumePathApi24(storageManager, split[0])
+                } else {
+                    getVolumePathApi21(storageManager, split[0])
                 }
+                "$volumePath/${split[1]}"
             }
-        }
 
-        return findMedia(context, uri)?.path
+            else->error("pathFromDocumentUri: not supported $uri")
+        }
     } catch (ex: Throwable) {
         log.eToast(context, ex, "pathFromDocumentUri failed.")
-        return null
+        null
     }
 }
 
-class FindMediaResult(val uri: Uri, val mimeType: String?, val path: String?)
+class FindMediaResult(val uri: Uri, val mimeType: String?)
 
-@SuppressLint("Recycle")
-@Suppress("DEPRECATION")
 fun findMedia(context: Context, uri: Uri): FindMediaResult? {
     return try {
         context.contentResolver.query(
             uri,
-            null,
+            arrayOf(
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.MIME_TYPE
+            ),
             null,
             null,
             null
         )
             ?.use { cursor ->
-                val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
-                val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
-                val idxPath = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
                 if (cursor.moveToNext()) {
+                    val idxId = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+                    val idxMimeType = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
                     FindMediaResult(
                         ContentUris.withAppendedId(
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                             cursor.getLong(idxId)
                         ),
-                        cursor.getStringOrNull(idxMimeType),
-                        cursor.getStringOrNull(idxPath)
+                        cursor.getStringOrNull(idxMimeType)
                     )
                 } else {
                     log.eToast(context, false, "can't find content uri.")

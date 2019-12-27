@@ -3,9 +3,6 @@
     android:id="@+id/btnCamera"
     android:layout_width="24dp"
     android:layout_height="24dp"
-    android:background="@drawable/btn_bg_round"
     android:importantForAccessibility="no"
-    android:src="@drawable/ic_camera"
     android:scaleType="fitCenter"
-    android:tint="@color/colorLauncherIconForeground"
-    />
+    android:tint="@color/colorLauncherIconForeground" />

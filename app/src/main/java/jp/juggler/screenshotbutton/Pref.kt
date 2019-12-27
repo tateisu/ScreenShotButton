@@ -2,7 +2,12 @@ package jp.juggler.screenshotbutton
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.widget.CompoundButton
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.View
+import android.widget.*
+import androidx.annotation.IdRes
+import androidx.annotation.LayoutRes
 
 @Suppress("EqualsOrHashCode")
 abstract class BasePref<T>(val key : String) {
@@ -52,7 +57,7 @@ class BooleanPref(
         editor.putBoolean(key, v)
     }
 
-    fun bindUI(pref:SharedPreferences,btn:CompoundButton) {
+    fun bindSwitch(pref:SharedPreferences,btn:CompoundButton) {
         btn.isChecked = invoke(pref)
         btn.setOnCheckedChangeListener { _, isChecked ->
             val e =pref.edit()
@@ -109,6 +114,17 @@ class FloatPref(key : String, private val defVal : Float) : BasePref<Float>(key)
     }
 }
 
+data class SpinnerValue(
+    val data: String,
+    val caption: String
+) {
+    @Suppress("unused")
+    constructor(dataSrc: Int, caption: String) : this(
+        data = dataSrc.toString(),
+        caption = caption
+    )
+}
+
 class StringPref(
     key : String,
     @Suppress("MemberVisibilityCanBePrivate") val defVal : String,
@@ -124,6 +140,64 @@ class StringPref(
     }
 
     fun toInt(pref : SharedPreferences) = invoke(pref).toIntOrNull() ?: defVal.toInt()
+
+    fun bindEditText(pref:SharedPreferences,editText: EditText) {
+        editText.setText(invoke(pref))
+        editText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+            }
+
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+            }
+
+            override fun afterTextChanged(e: Editable?) {
+                e ?: return
+                pref.edit().putString(key, e.toString()).apply()
+            }
+        })
+    }
+//    fun bindSpinner(
+//        pref:SharedPreferences,
+//        spinner: Spinner,
+//        list: List<SpinnerValue>,
+//        @LayoutRes layoutId:Int=android.R.layout.simple_spinner_item
+//    ) {
+//        spinner.adapter = ArrayAdapter(
+//            spinner.context,
+//            layoutId,
+//            list.map { it.caption }.toTypedArray()
+//        ).apply {
+//            setDropDownViewResource(R.layout.lv_spinner_dropdown)
+//        }
+//
+//        var initialSelection = -1
+//        val oldValue = this.invoke(pref)
+//        for ((index, item) in list.withIndex()) {
+//            if (item.data == oldValue) {
+//                initialSelection = index
+//                break
+//            }
+//        }
+//        if (initialSelection == -1) {
+//            initialSelection = 0
+//            App1.pref.edit().putString(key, list[initialSelection].data).apply()
+//        }
+//        spinner.setSelection(initialSelection, false)
+//
+//        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+//            override fun onNothingSelected(p0: AdapterView<*>?) {
+//            }
+//
+//            override fun onItemSelected(
+//                parent: AdapterView<*>?,
+//                view: View?,
+//                index: Int,
+//                id: Long
+//            ) {
+//                pref.edit().putString(key, list[index].data).apply()
+//            }
+//        }
+//    }
 }
 
 fun SharedPreferences.Editor.put(item : BooleanPref, v : Boolean) : SharedPreferences.Editor {
@@ -175,7 +249,7 @@ object Pref {
 
     val fpCameraButtonXVideo = FloatPref(
         "cameraButtonXVideo",
-        70f
+        120f
     )
 
     val fpCameraButtonYVideo = FloatPref(
@@ -199,5 +273,20 @@ object Pref {
     val spSaveTreeUri = StringPref(
         "SaveTreeUri",
         ""
+    )
+
+    val spCodec = StringPref(
+        "Codec",
+        ""
+    )
+
+    val spFrameRate = StringPref(
+        "FrameRate",
+        "30"
+    )
+
+    val spBitRate = StringPref(
+        "BitRate",
+        "6000000"
     )
 }

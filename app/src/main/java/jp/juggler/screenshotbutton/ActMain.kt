@@ -48,6 +48,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private lateinit var btnStartStopVideo: Button
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
+    private lateinit var tvCodec :TextView
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
@@ -63,6 +64,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         super.onStart()
         showSaveFolder()
         showButton()
+        showCurrentCodec()
         dispatch()
     }
 
@@ -118,6 +120,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 if (isServiceAliveVideo()) {
                     stopService(Intent(this, CaptureServiceVideo::class.java))
                 } else {
+                    try{
+                        Capture.loadVideoSetting(App1.pref)
+                    }catch(ex:Throwable){
+                        log.eToast(this,ex,"Video setting error.")
+                        return
+                    }
                     timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
                     dispatch()
                 }
@@ -128,6 +136,17 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                     .remove(Pref.fpCameraButtonYVideo)
                     .apply()
                 CaptureServiceVideo.getService()?.reloadPosition()
+            }
+
+            R.id.btnCodecEdit->{
+                val ad = ActionsDialog()
+                for( codec in MediaCodecInfoAndType.LIST){
+                    ad.addAction(codec.toString()){
+                        App1.pref.edit().put(Pref.spCodec,codec.id).apply()
+                        showCurrentCodec()
+                    }
+                }
+                ad.show(this,getString(R.string.codec))
             }
         }
     }
@@ -154,7 +173,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             btnStartStopVideo,
             findViewById<View>(R.id.btnSaveFolder),
             findViewById<View>(R.id.btnResetPositionStill),
-            findViewById<View>(R.id.btnResetPositionVideo)
+            findViewById<View>(R.id.btnResetPositionVideo),
+            findViewById<View>(R.id.btnCodecEdit)
         ).forEach {
             it?.setOnClickListener(this)
         }
@@ -162,11 +182,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         tvSaveFolder = findViewById(R.id.tvSaveFolder)
         tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
         tvButtonSizeError.vg(false)
+        tvCodec = findViewById(R.id.tvCodec)
 
         val pref = App1.pref
 
-        Pref.bpSavePng.bindUI(pref, findViewById(R.id.swSavePng))
-        Pref.bpShowPostView.bindUI(pref, findViewById(R.id.swShowPostView))
+        Pref.bpSavePng.bindSwitch(pref, findViewById(R.id.swSavePng))
+        Pref.bpShowPostView.bindSwitch(pref, findViewById(R.id.swShowPostView))
 
         val etButtonSize: EditText = findViewById(R.id.etButtonSize)
         etButtonSize.setText(Pref.ipCameraButtonSize(pref).toString())
@@ -185,14 +206,30 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             }
         })
 
+        Pref.spFrameRate.bindEditText(pref, findViewById(R.id.etFrameRate))
+        Pref.spBitRate.bindEditText(pref, findViewById(R.id.etBitRate))
     }
-
 
     private fun showSaveFolder() {
         tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
             .notEmpty()
             ?.let { pathFromDocumentUri(this, Uri.parse(it)) }
             ?: getString(R.string.not_selected)
+    }
+
+    private fun showCurrentCodec(){
+        val codecList = MediaCodecInfoAndType.LIST
+        if(codecList.isEmpty()) {
+            log.eToast(this, false, "Oops! this device has no MediaCodec!!")
+            return
+        }
+        val id = Pref.spCodec(App1.pref)
+        var codec = codecList.find{ it.id == id }
+        if( codec ==null){
+            codec = codecList[0]
+            App1.pref.edit().put(Pref.spCodec,codec.id).apply()
+        }
+        tvCodec.text= codec.toString()
     }
 
     // サービスからも呼ばれる
@@ -205,6 +242,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 R.string.start
             }
         )
+
+        btnStartStopVideo.isEnabled = MediaCodecInfoAndType.LIST.isNotEmpty() && Build.VERSION.SDK_INT >= API_MEDIA_MUXER_FILE_DESCRIPTER
         btnStartStopVideo.setText(
             if (isServiceAliveVideo()) {
                 R.string.stop
@@ -212,10 +251,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 R.string.start
             }
         )
+
     }
 
     // 権限のチェックと取得インタラクションの開始
-    // 画面表示時や撮影ボタンの表示開始時に呼ばれる
+// 画面表示時や撮影ボタンの表示開始時に呼ばれる
     private fun dispatch() {
         if (!prepareOverlay()) return
 
@@ -244,8 +284,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    ///////////////////////////////////////////////////////
-    // 保存フォルダの選択と書き込み権限
+///////////////////////////////////////////////////////
+// 保存フォルダの選択と書き込み権限
 
     private fun openSaveTreeUriChooser() {
         startActivityForResult(
@@ -300,8 +340,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return false
     }
 
-    /////////////////////////////////////////////////////////////////
-    // オーバーレイ表示の権限
+/////////////////////////////////////////////////////////////////
+// オーバーレイ表示の権限
 
     @SuppressLint("InlinedApi")
     private fun prepareOverlay(): Boolean {
@@ -327,8 +367,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         return canDrawOverlaysCompat(this)
     }
 
-    ///////////////////////////////////////////////////
-    // ダイアログの多重表示を防止する
+///////////////////////////////////////////////////
+// ダイアログの多重表示を防止する
 
     private var lastDialog: WeakReference<Dialog>? = null
 

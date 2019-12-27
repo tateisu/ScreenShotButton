@@ -5,9 +5,8 @@
     <color name="colorAccent">#D81B60</color>
     <color name="colorLauncherIconBackground">#eeeeee</color>
     <color name="colorLauncherIconForeground">#222222</color>
-    <color name="colorText">#000</color>
+    <color name="colorText">#FFF</color>
     <color name="colorSettingBorder">#777777</color>
-    <color name="colorRippleEffect">#777777</color>
-    <color name="colorTextError">#FF0000</color>
+    <color name="colorRippleEffect">#888888</color>
 
 </resources>

@@ -5,6 +5,8 @@ import android.content.Context
 import android.graphics.*
 import android.os.Binder.getCallingUid
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.View
@@ -37,6 +39,9 @@ fun View.vg(visible: Boolean): View? {
 
 fun String?.notEmpty() =
     if (this?.isNotEmpty() == true) this else null
+
+fun Int?.notZero() =
+    if (this != null && this != 0) this else null
 
 suspend fun <T : Any?> Bitmap.use(block: suspend (Bitmap) -> T): T {
     try {
@@ -77,7 +82,7 @@ fun canDrawOverlaysCompat(context: Context): Boolean {
     // Android 6 と Android 8, 8.1 はバグがあるので
     // 許可されていても Settings.canDrawOverlays(context) がfalseを返す場合がある
 
-    if( Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ){
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
         // AppOpsManager.checkOp() は API 29 でdeprecated
 
         (context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager)
@@ -125,3 +130,11 @@ fun canDrawOverlaysCompat(context: Context): Boolean {
 
 }
 
+fun runOnMainThread(block: () -> Unit) {
+    val mainLooper = Looper.getMainLooper()
+    if (mainLooper.thread == Thread.currentThread()) {
+        block()
+    } else {
+        Handler(mainLooper).post { block() }
+    }
+}
