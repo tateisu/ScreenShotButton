@@ -14,6 +14,7 @@ import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
 import jp.juggler.screenshotbutton.API_APPLICATION_OVERLAY
 
 
@@ -162,4 +163,11 @@ fun String?.toUriOrNull() =
         Uri.parse(this)
     } catch (ex: Throwable) {
         null
+    }
+
+var View.isEnabledWithColor : Boolean
+    get() = isEnabled
+    set(value){
+        isEnabled = value
+        alpha = if(value) 1f else 0.5f
     }

@@ -260,12 +260,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     }
 
-    private var Button.isEnabledWithColor : Boolean
-        get() = isEnabled
-        set(value){
-            isEnabled = value
-            alpha = if(isEnabled) 1f else 0.5f
-        }
 
     // 権限のチェックと取得インタラクションの開始
     // 画面表示時や撮影ボタンの表示開始時に呼ばれる
