@@ -7,14 +7,14 @@ Android app that shows overlay screen shot button.
 - OSS, no pay, no ad, no tracking.
 
 ### Disclaimer
-- Video capturing requires Android 8+, and also it's still a pilot implementation.
+- **Video capturing requires Android 8+**, and also it's still a pilot implementation.
 - To reduce the load, the shutter lag is slightly larger.
 - if the overlay button was closed on your device, please check https://dontkillmyapp.com/ .
 
 ### Install
-- please find APK files in assets of the release. https://github.com/tateisu/ScreenShotButton/releases
+- please find the APK file from assets in each release. https://github.com/tateisu/ScreenShotButton/releases
 
-### Confirmed devices
+### Tested devices
 - API 29 Android 10 Essential PH-1 Phone 
 - API 28 Android 9 Huawei CMR-W19 MediaPad M5 Pro 
 - API 27 Android 8.1 Google bullhead Nexus 5X (Google store,2015) 
@@ -30,7 +30,7 @@ Android app that shows overlay screen shot button.
 The shape like 'aperture' at the top-left corner on screen is overlay shutter button. You can move it by dragging.
 ![Screenshot_20191221_232648_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309445-08fa7400-244b-11ea-9dba-94005e2dc28b.jpg)
 
-This app shows 'postview' after tap the shutter button.
+This app shows the 'post view' after tap shutter button.
 ![Screenshot_20191221_232724_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309446-0b5cce00-244b-11ea-84c6-180f9b7e562c.jpg)
 
 ### Motivation

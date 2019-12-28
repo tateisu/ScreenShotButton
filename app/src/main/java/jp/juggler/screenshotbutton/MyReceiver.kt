@@ -1,6 +1,5 @@
 package jp.juggler.screenshotbutton
 
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,14 +15,18 @@ class MyReceiver : BroadcastReceiver() {
         const val ACTION_RUNNING_VIDEO_START = "video_start"
         const val ACTION_RUNNING_VIDEO_STOP = "video_stop"
 
-        private fun <T :CaptureServiceBase> T?.runOnService(context:Context,notificationId:Int,block: T.()->Unit){
-            when(this){
-                null->{
-                    log.eToast(context,false,"service not running.")
-                    context.getNotificationManager().cancel(notificationId)
-                }
-                else-> block.invoke(this)
+        // サービスが存在しなければ通知を消す
+        // 存在するならコールバックを実行する
+        private fun <T : CaptureServiceBase, R : Any?> T?.runOnService(
+            context: Context,
+            notificationId: Int, block: T.() -> R
+        ): R? = when (this) {
+            null -> {
+                log.eToast(context, false, "service not running.")
+                context.getNotificationManager().cancel(notificationId)
+                null
             }
+            else -> block.invoke(this)
         }
     }
 
@@ -34,25 +37,25 @@ class MyReceiver : BroadcastReceiver() {
 
             ACTION_RUNNING_DELETE_STILL ->
                 CaptureServiceStill.getService()
-                    .runOnService(context,NOTIFICATION_ID_RUNNING_STILL){
+                    .runOnService(context, NOTIFICATION_ID_RUNNING_STILL) {
                         stopSelf()
                     }
 
             ACTION_RUNNING_DELETE_VIDEO ->
                 CaptureServiceVideo.getService()
-                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                    .runOnService(context, NOTIFICATION_ID_RUNNING_VIDEO) {
                         stopSelf()
                     }
 
             ACTION_RUNNING_VIDEO_START ->
                 CaptureServiceVideo.getService()
-                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                    .runOnService(context, NOTIFICATION_ID_RUNNING_VIDEO) {
                         captureStart()
                     }
 
             ACTION_RUNNING_VIDEO_STOP ->
                 CaptureServiceVideo.getService()
-                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                    .runOnService(context, NOTIFICATION_ID_RUNNING_VIDEO) {
                         captureStop()
                     }
         }
