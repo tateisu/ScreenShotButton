@@ -3,11 +3,11 @@ Android app that shows overlay screen shot button.
 
 ### Feature
 - Showing post view after shooting.
-- OSS, no pay, no ad, no tracking.
 - Automatically detect and retry issues with black screen shots on some devices.
+- OSS, no pay, no ad, no tracking.
 
 ### Disclaimer
-- Video is not supported.
+- Video capturing is still experimental implementation.
 - To reduce the load, the shutter lag is slightly larger.
 - if the overlay button was closed on your device, please check https://dontkillmyapp.com/ .
 
