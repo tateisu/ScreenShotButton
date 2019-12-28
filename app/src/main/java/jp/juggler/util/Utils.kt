@@ -31,14 +31,9 @@ fun Float.dp2px(dm: DisplayMetrics) =
 fun Int.px2dp(dm: DisplayMetrics) =
     this.toFloat() / dm.density
 
-fun View.vg(visible: Boolean): View? {
-    return if (visible) {
-        this.visibility = View.VISIBLE
-        this
-    } else {
-        this.visibility = View.GONE
-        null
-    }
+fun <T:View> T?.vg(visible: Boolean): T? {
+    this?.visibility = if (visible) View.VISIBLE else  View.GONE
+    return if (visible) this else null
 }
 
 fun String?.notEmpty() =

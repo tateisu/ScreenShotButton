@@ -49,6 +49,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
     private lateinit var tvCodec: TextView
+    private lateinit var tvVideoError: TextView
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
@@ -153,6 +154,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     /////////////////////////////////////////
 
+    private var videcCaptureEnabled = false
+
     private fun initUI() {
 
         setContentView(R.layout.act_main)
@@ -183,6 +186,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
         tvButtonSizeError.vg(false)
         tvCodec = findViewById(R.id.tvCodec)
+        tvVideoError = findViewById(R.id.tvVideoError)
 
         val pref = App1.pref
 
@@ -208,6 +212,19 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         Pref.spFrameRate.bindEditText(pref, findViewById(R.id.etFrameRate))
         Pref.spBitRate.bindEditText(pref, findViewById(R.id.etBitRate))
+
+        // 動作環境により動画キャプチャができない場合、エラーを表示する
+        val message = if (MediaCodecInfoAndType.getList(this).isNotEmpty()) {
+            getString(R.string.video_codec_missing)
+        } else if (Build.VERSION.SDK_INT < API_MEDIA_MUXER_FILE_DESCRIPTER) {
+            getString(R.string.media_muxer_too_old)
+
+        } else {
+            null
+        }
+        tvVideoError.vg(message != null)?.text = message
+        videcCaptureEnabled = message == null
+
     }
 
     private fun showSaveFolder() {
@@ -254,10 +271,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         btnStartStopStill.isEnabledWithColor = !isCapturing
 
-        btnStartStopVideo.isEnabledWithColor = !isCapturing &&
-                MediaCodecInfoAndType.getList(this).isNotEmpty() &&
-                Build.VERSION.SDK_INT >= API_MEDIA_MUXER_FILE_DESCRIPTER
-
+        btnStartStopVideo.isEnabledWithColor = !isCapturing && videcCaptureEnabled
     }
 
 

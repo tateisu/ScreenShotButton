@@ -30,32 +30,40 @@
 
             <TableRow android:baselineAligned="true">
 
-                <TextView android:text="@string/still"  android:textColor="@color/colorText" android:gravity="end" />
+                <TextView
+                    android:gravity="end"
+                    android:text="@string/still"
+                    android:textColor="@color/colorText" />
 
                 <Button
                     android:id="@+id/btnStartStopStill"
+                    android:layout_marginStart="6dp"
                     android:text="@string/start"
                     tools:ignore="ButtonStyle" />
 
                 <Button
                     android:id="@+id/btnResetPositionStill"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="6dp"
                     android:text="@string/reset_position"
                     tools:ignore="ButtonStyle" />
             </TableRow>
 
             <TableRow android:baselineAligned="true">
 
-                <TextView android:text="@string/video"   android:textColor="@color/colorText" android:gravity="end" />
+                <TextView
+                    android:gravity="end"
+                    android:text="@string/video"
+                    android:textColor="@color/colorText" />
 
                 <Button
                     android:id="@+id/btnStartStopVideo"
+                    android:layout_marginStart="6dp"
                     android:text="@string/start"
                     tools:ignore="ButtonStyle" />
 
                 <Button
                     android:id="@+id/btnResetPositionVideo"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="6dp"
                     android:text="@string/reset_position"
                     tools:ignore="ButtonStyle" />
             </TableRow>
@@ -63,44 +71,50 @@
 
         <LinearLayout
             style="@style/setting_item"
-            android:orientation="horizontal"
             android:baselineAligned="false"
             android:gravity="center_vertical"
-            >
+            android:orientation="horizontal">
+
             <TextView
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:labelFor="@+id/etButtonSize"
-                android:textColor="@color/colorText"
-                android:text="@string/overlay_button_size" />
+                android:text="@string/overlay_button_size"
+                android:textColor="@color/colorText" />
 
             <EditText
                 android:id="@+id/etButtonSize"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
                 android:importantForAutofill="no"
                 android:inputType="number"
-                android:gravity="center"
-                android:minWidth="64dp"
-                android:layout_marginStart="8dp"
-                />
+                android:minWidth="64dp" />
 
         </LinearLayout>
+
         <TextView
             android:id="@+id/tvButtonSizeError"
             style="@style/setting_item"
-            android:text="@string/button_size_error"
-            android:textColor="@color/colorTextError"
             android:gravity="end"
             android:layout_marginBottom="8dp"
-            />
+            android:text="@string/button_size_error"
+            android:textColor="@color/colorTextError" />
 
         <TextView
             style="@style/setting_item"
-
             android:text="@string/overlay_button_desc"
             android:textColor="@color/colorText"
+            android:textSize="12sp" />
+
+        <TextView
+            style="@style/setting_item"
+            android:layout_marginTop="8dp"
+            android:id="@+id/tvVideoError"
+            android:textColor="@color/colorTextError"
+
             android:textSize="12sp" />
 
         <View style="@style/setting_border" />
@@ -125,6 +139,8 @@
                 android:id="@+id/btnSaveFolder"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+
                 android:contentDescription="@string/edit"
                 android:elevation="3dp"
                 android:src="@drawable/ic_edit" />
@@ -177,7 +193,6 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
                 android:text="@string/codec"
                 android:textColor="@color/colorText" />
 
@@ -185,7 +200,9 @@
                 android:id="@+id/tvCodec"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:layout_weight="1"
+
                 android:textColor="@color/colorText"
                 android:textSize="12sp" />
 
@@ -251,9 +268,11 @@
             android:textSize="12sp" />
 
         <View style="@style/setting_border" />
+
         <TextView
             style="@style/setting_caption"
             android:text="@string/other_settings" />
+
         <Switch
             android:id="@+id/swShowPostView"
             style="@style/setting_item"
