@@ -1,6 +1,7 @@
 package jp.juggler.util
 
 import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.content.Context
 import android.graphics.*
 import android.media.MediaCodec
@@ -180,3 +181,6 @@ fun getCurrentTimeString(): String {
         , cal.get(Calendar.SECOND)
     )
 }
+
+fun Context.getNotificationManager()=
+    getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

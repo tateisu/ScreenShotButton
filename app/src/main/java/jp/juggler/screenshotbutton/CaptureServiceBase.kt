@@ -122,7 +122,7 @@ abstract class CaptureServiceBase(
         super.onCreate()
         App1.prepareAppState(context)
 
-        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getNotificationManager()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         viewRoot = LayoutInflater.from(context).inflate(R.layout.service_overlay, null)
 

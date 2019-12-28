@@ -1,9 +1,11 @@
 package jp.juggler.screenshotbutton
 
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import jp.juggler.util.LogCategory
+import jp.juggler.util.getNotificationManager
 
 class MyReceiver : BroadcastReceiver() {
     companion object {
@@ -13,32 +15,46 @@ class MyReceiver : BroadcastReceiver() {
 
         const val ACTION_RUNNING_VIDEO_START = "video_start"
         const val ACTION_RUNNING_VIDEO_STOP = "video_stop"
+
+        private fun <T :CaptureServiceBase> T?.runOnService(context:Context,notificationId:Int,block: T.()->Unit){
+            when(this){
+                null->{
+                    log.eToast(context,false,"service not running.")
+                    context.getNotificationManager().cancel(notificationId)
+                }
+                else-> block.invoke(this)
+            }
+        }
     }
 
     override fun onReceive(context: Context, data: Intent?) {
         val action = data?.action
         log.i("onReceive $action")
         when (data?.action) {
+
             ACTION_RUNNING_DELETE_STILL ->
-                context.stopService(Intent(context, CaptureServiceStill::class.java))
+                CaptureServiceStill.getService()
+                    .runOnService(context,NOTIFICATION_ID_RUNNING_STILL){
+                        stopSelf()
+                    }
+
             ACTION_RUNNING_DELETE_VIDEO ->
-                context.stopService(Intent(context, CaptureServiceVideo::class.java))
-            ACTION_RUNNING_VIDEO_START ->{
-                val service = CaptureServiceVideo.getService()
-                if(service==null){
-                    log.e("service is null.")
-                }else{
-                    service.captureStart()
-                }
-            }
-            ACTION_RUNNING_VIDEO_STOP ->{
-                val service = CaptureServiceVideo.getService()
-                if(service==null){
-                    log.e("service is null.")
-                }else{
-                    service.captureStop()
-                }
-            }
+                CaptureServiceVideo.getService()
+                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                        stopSelf()
+                    }
+
+            ACTION_RUNNING_VIDEO_START ->
+                CaptureServiceVideo.getService()
+                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                        captureStart()
+                    }
+
+            ACTION_RUNNING_VIDEO_STOP ->
+                CaptureServiceVideo.getService()
+                    .runOnService(context,NOTIFICATION_ID_RUNNING_VIDEO){
+                        captureStop()
+                    }
         }
     }
 }
