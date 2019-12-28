@@ -7,7 +7,7 @@ Android app that shows overlay screen shot button.
 - OSS, no pay, no ad, no tracking.
 
 ### Disclaimer
-- Video capturing is still experimental implementation.
+- Video capturing requires Android 8+, and also it's still a pilot implementation.
 - To reduce the load, the shutter lag is slightly larger.
 - if the overlay button was closed on your device, please check https://dontkillmyapp.com/ .
 
