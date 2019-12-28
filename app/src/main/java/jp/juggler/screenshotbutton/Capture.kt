@@ -198,18 +198,7 @@ object Capture {
         return true
     }
 
-    private fun generateBasename(): String {
-        val cal = Calendar.getInstance()
-        return String.format(
-            "%d%02d%02d-%02d%02d%02d"
-            , cal.get(Calendar.YEAR)
-            , cal.get(Calendar.MONTH) + 1
-            , cal.get(Calendar.DAY_OF_MONTH)
-            , cal.get(Calendar.HOUR_OF_DAY)
-            , cal.get(Calendar.MINUTE)
-            , cal.get(Calendar.SECOND)
-        )
-    }
+
 
     ////////////////////////////////////////////////////////////
 
@@ -360,7 +349,7 @@ object Capture {
             val documentUri = generateDocument(
                 context,
                 Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                generateBasename(),
+                getCurrentTimeString(),
                 mimeTypeFile
             )
             bench("generateDocument")
@@ -627,7 +616,7 @@ object Capture {
                     val documentUri = generateDocument(
                         context,
                         Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                        generateBasename(),
+                        getCurrentTimeString(),
                         mimeType
                     )
                     try {

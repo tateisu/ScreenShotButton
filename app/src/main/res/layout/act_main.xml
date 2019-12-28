@@ -278,5 +278,17 @@
             style="@style/setting_item"
             android:minHeight="48dp"
             android:text="@string/show_post_view_after_capture" />
+
+        <Switch
+            android:id="@+id/swLogToFile"
+            style="@style/setting_item"
+            android:minHeight="48dp"
+            android:text="@string/output_log_to_file" />
+        <TextView
+            style="@style/setting_item"
+            android:id="@+id/tvLogToFileDesc"
+            android:textColor="@color/colorText"
+            android:textSize="12sp" />
+
     </LinearLayout>
 </ScrollView>

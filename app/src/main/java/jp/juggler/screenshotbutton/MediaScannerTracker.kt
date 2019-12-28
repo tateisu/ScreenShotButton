@@ -18,7 +18,7 @@ class MediaScannerTracker(
 ) : MediaScannerConnection.MediaScannerConnectionClient {
 
     companion object {
-        private val log = LogCategory("MediaScannerTracker")
+        private val log = LogCategory("${App1.tagPrefix}/MediaScannerTracker")
     }
 
     class Item(

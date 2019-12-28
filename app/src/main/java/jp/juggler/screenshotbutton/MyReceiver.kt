@@ -7,7 +7,7 @@ import jp.juggler.util.LogCategory
 
 class MyReceiver : BroadcastReceiver() {
     companion object {
-        private val log = LogCategory("MyReceiver")
+        private val log = LogCategory("${App1.tagPrefix}/MyReceiver")
         const val ACTION_RUNNING_DELETE_STILL = "running_delete_still"
         const val ACTION_RUNNING_DELETE_VIDEO = "running_delete_video"
 

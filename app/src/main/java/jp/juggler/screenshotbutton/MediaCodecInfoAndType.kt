@@ -41,7 +41,7 @@ data class MediaCodecInfoAndType(
 
     companion object {
 
-        // private val log = LogCategory("MediaCodecInfoAndType")
+        // private val log = LogCategory("${App1.tagPrefix}/MediaCodecInfoAndType")
 
         private fun compareNull(a: Any?, b: Any?) =
             if (a == null) {

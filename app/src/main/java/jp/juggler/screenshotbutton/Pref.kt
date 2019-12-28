@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View
-import android.widget.*
-import androidx.annotation.IdRes
-import androidx.annotation.LayoutRes
+import android.widget.CompoundButton
+import android.widget.EditText
 
 @Suppress("EqualsOrHashCode")
 abstract class BasePref<T>(val key : String) {
@@ -45,8 +43,7 @@ fun SharedPreferences.Editor.remove(item : BasePref<*>) : SharedPreferences.Edit
 
 class BooleanPref(
     key : String,
-    private val defVal : Boolean,
-    val id : Int
+    private val defVal : Boolean
 ) : BasePref<Boolean>(key) {
 
     override operator fun invoke(pref : SharedPreferences) : Boolean {
@@ -57,7 +54,7 @@ class BooleanPref(
         editor.putBoolean(key, v)
     }
 
-    fun bindSwitch(pref:SharedPreferences,btn:CompoundButton) {
+    fun bindSwitch(pref:SharedPreferences,btn:CompoundButton,callback :(Boolean)->Unit = {}) {
         btn.isChecked = invoke(pref)
         btn.setOnCheckedChangeListener { _, isChecked ->
             val e =pref.edit()
@@ -67,6 +64,8 @@ class BooleanPref(
                 e.putBoolean(key,isChecked)
             }
             e.apply()
+
+            callback(isChecked)
         }
     }
 }
@@ -114,21 +113,9 @@ class FloatPref(key : String, private val defVal : Float) : BasePref<Float>(key)
     }
 }
 
-data class SpinnerValue(
-    val data: String,
-    val caption: String
-) {
-    @Suppress("unused")
-    constructor(dataSrc: Int, caption: String) : this(
-        data = dataSrc.toString(),
-        caption = caption
-    )
-}
-
 class StringPref(
-    key : String,
-    @Suppress("MemberVisibilityCanBePrivate") val defVal : String,
-    val skipImport : Boolean = false
+    key: String,
+    @Suppress("MemberVisibilityCanBePrivate") val defVal: String
 ) : BasePref<String>(key) {
 
     override operator fun invoke(pref : SharedPreferences) : String {
@@ -156,48 +143,6 @@ class StringPref(
             }
         })
     }
-//    fun bindSpinner(
-//        pref:SharedPreferences,
-//        spinner: Spinner,
-//        list: List<SpinnerValue>,
-//        @LayoutRes layoutId:Int=android.R.layout.simple_spinner_item
-//    ) {
-//        spinner.adapter = ArrayAdapter(
-//            spinner.context,
-//            layoutId,
-//            list.map { it.caption }.toTypedArray()
-//        ).apply {
-//            setDropDownViewResource(R.layout.lv_spinner_dropdown)
-//        }
-//
-//        var initialSelection = -1
-//        val oldValue = this.invoke(pref)
-//        for ((index, item) in list.withIndex()) {
-//            if (item.data == oldValue) {
-//                initialSelection = index
-//                break
-//            }
-//        }
-//        if (initialSelection == -1) {
-//            initialSelection = 0
-//            App1.pref.edit().putString(key, list[initialSelection].data).apply()
-//        }
-//        spinner.setSelection(initialSelection, false)
-//
-//        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-//            override fun onNothingSelected(p0: AdapterView<*>?) {
-//            }
-//
-//            override fun onItemSelected(
-//                parent: AdapterView<*>?,
-//                view: View?,
-//                index: Int,
-//                id: Long
-//            ) {
-//                pref.edit().putString(key, list[index].data).apply()
-//            }
-//        }
-//    }
 }
 
 fun SharedPreferences.Editor.put(item : BooleanPref, v : Boolean) : SharedPreferences.Editor {
@@ -260,14 +205,15 @@ object Pref {
     // true=PNG,  false=JPEG
     val bpSavePng = BooleanPref(
         "compressPng",
-        false,
-        R.id.swSavePng
+        false
     )
-
     val bpShowPostView = BooleanPref(
         "ShowPostVie",
-        true,
-        R.id.swShowPostView
+        true
+    )
+    val bpLogToFile = BooleanPref(
+        "LogToFile",
+        false
     )
 
     val spSaveTreeUri = StringPref(

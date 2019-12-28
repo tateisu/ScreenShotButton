@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import jp.juggler.screenshotbutton.API_APPLICATION_OVERLAY
+import java.util.*
 
 
 @Suppress("SameParameterValue")
@@ -166,3 +167,16 @@ var View.isEnabledWithColor : Boolean
         isEnabled = value
         alpha = if(value) 1f else 0.5f
     }
+
+fun getCurrentTimeString(): String {
+    val cal = Calendar.getInstance()
+    return String.format(
+        "%d%02d%02d-%02d%02d%02d"
+        , cal.get(Calendar.YEAR)
+        , cal.get(Calendar.MONTH) + 1
+        , cal.get(Calendar.DAY_OF_MONTH)
+        , cal.get(Calendar.HOUR_OF_DAY)
+        , cal.get(Calendar.MINUTE)
+        , cal.get(Calendar.SECOND)
+    )
+}

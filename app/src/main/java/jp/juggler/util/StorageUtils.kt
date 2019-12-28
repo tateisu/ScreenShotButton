@@ -1,6 +1,5 @@
 package jp.juggler.util
 
-import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.content.ContentUris
 import android.content.Context
@@ -13,9 +12,10 @@ import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import jp.juggler.screenshotbutton.API_STORAGE_VOLUME
+import jp.juggler.screenshotbutton.App1
 
 @Suppress("unused")
-private val log = LogCategory("StorageUtils")
+private val log = LogCategory("${App1.tagPrefix}/StorageUtils")
 
 private fun Cursor.getStringOrNull(idx: Int) = when {
     isNull(idx) -> null

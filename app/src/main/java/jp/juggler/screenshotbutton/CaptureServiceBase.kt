@@ -2,7 +2,6 @@ package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
@@ -39,23 +38,24 @@ abstract class CaptureServiceBase(
 
         private val serviceList = LinkedList<WeakReference<CaptureServiceBase>>()
 
-        private fun addActiveService(service:CaptureServiceBase){
+        private fun addActiveService(service: CaptureServiceBase) {
             serviceList.add(WeakReference(service))
         }
 
-        private fun removeActiveService(service:CaptureServiceBase){
+        private fun removeActiveService(service: CaptureServiceBase) {
             val it = serviceList.iterator()
-            while(it.hasNext()){
+            while (it.hasNext()) {
                 val ref = it.next()
                 val s = ref.get()
-                if( s==null ||s==service) it.remove()
+                if (s == null || s == service) it.remove()
             }
         }
 
-        private fun getServices()= serviceList.mapNotNull { it.get() }
+        fun getServices() = serviceList.mapNotNull { it.get() }
 
-        fun showButtonAll(){
+        fun showButtonAll() {
             runOnMainThread {
+                log.d("showButtonAll")
                 getServices().forEach { it.showButton() }
                 ActMain.getActivity()?.showButton()
             }
@@ -100,12 +100,24 @@ abstract class CaptureServiceBase(
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        log.d("onTaskRemoved")
         super.onTaskRemoved(rootIntent)
         stopSelf()
     }
 
+    override fun onLowMemory() {
+        log.d("onLowMemory")
+        super.onLowMemory()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        log.d("onTrimMemory $level")
+        super.onTrimMemory(level)
+    }
+
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
+        log.d("onCreate")
         addActiveService(this)
         super.onCreate()
         App1.prepareAppState(context)
@@ -154,30 +166,29 @@ abstract class CaptureServiceBase(
             }
         }
 
-        showButton()
-        ActMain.getActivity()?.showButton()
+        showButtonAll()
     }
 
     override fun onDestroy() {
         log.i("onDestroy start")
-        isDestroyed = true
         removeActiveService(this)
+        isDestroyed = true
         windowManager.removeView(viewRoot)
         stopForeground(true)
 
         if (this is CaptureServiceVideo) Capture.stopVideo()
 
-        if (CaptureServiceStill.getService() == null && CaptureServiceVideo.getService() == null) {
+        if (getServices().isEmpty() ) {
+            log.i("onDestroy: captureJob join start")
             runBlocking {
                 captureJob?.get()?.join()
             }
+            log.i("onDestroy: captureJob join end")
             Capture.release()
-            log.i("onDestroy: capture released.")
         }
 
+        showButtonAll()
 
-        ActMain.getActivity()?.showButton()
-        log.i("onDestroy: showButton end.")
         super.onDestroy()
         log.i("onDestroy end")
     }
@@ -237,7 +248,7 @@ abstract class CaptureServiceBase(
     //////////////////////////////////////////////
     // 撮影ボタンのドラッグ操作
 
-    var hideByTouching = false
+    private var hideByTouching = false
 
     fun showButton() {
         if (isDestroyed) return
@@ -250,8 +261,7 @@ abstract class CaptureServiceBase(
         // キャプチャ中はボタンを隠す(操作できない)
         btnCamera.vg(!isCapturing)
 
-        val hideByTouching =  (CaptureServiceStill.getService()?.hideByTouching?:false) ||
-                (CaptureServiceVideo.getService()?.hideByTouching?:false)
+        val hideByTouching = getServices ().find{ it.hideByTouching } != null
 
         // タッチ中かつ非ドラッグ状態ならボタンを隠す(操作はできる)
         if (hideByTouching) {
@@ -333,7 +343,6 @@ abstract class CaptureServiceBase(
     ///////////////////////////////////////////////////////////////
 
 
-
     private fun createRunningNotification(isRecording: Boolean): Notification {
 
         val notificationChannelId = createNotificationChannel()
@@ -393,7 +402,7 @@ abstract class CaptureServiceBase(
         })
     }
 
-    abstract fun createNotificationChannel() :String
+    abstract fun createNotificationChannel(): String
 
     abstract fun arrangeNotification(
         builder: NotificationCompat.Builder,

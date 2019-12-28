@@ -23,7 +23,6 @@ import jp.juggler.util.*
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
-
 class ActMain : AppCompatActivity(), View.OnClickListener {
 
     companion object {
@@ -37,11 +36,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         fun getActivity() = refActivity?.get()
 
-        private fun isServiceAliveStill(): Boolean =
-            CaptureServiceStill.getService() != null
-
-        private fun isServiceAliveVideo(): Boolean =
-            CaptureServiceVideo.getService() != null
     }
 
     private lateinit var btnStartStopStill: Button
@@ -49,12 +43,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
     private lateinit var tvCodec: TextView
-    private lateinit var tvVideoError: TextView
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        log.d("onCreate savedInstanceState=$savedInstanceState")
         refActivity = WeakReference(this)
         super.onCreate(savedInstanceState)
         App1.prepareAppState(this)
@@ -62,6 +56,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     }
 
     override fun onStart() {
+        log.d("onStart")
         super.onStart()
         showSaveFolder()
         showButton()
@@ -70,6 +65,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        log.d("onActivityResult")
         super.onActivityResult(requestCode, resultCode, data)
 
         val continueDispatch = when (requestCode) {
@@ -102,7 +98,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 openSaveTreeUriChooser()
 
             R.id.btnStartStopStill ->
-                if (isServiceAliveStill()) {
+                if (CaptureServiceStill.isAlive()) {
                     stopService(Intent(this, CaptureServiceStill::class.java))
                 } else {
                     timeStartButtonTappedStill = SystemClock.elapsedRealtime()
@@ -118,7 +114,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             }
 
             R.id.btnStartStopVideo ->
-                if (isServiceAliveVideo()) {
+                if (CaptureServiceVideo.isAlive()) {
                     stopService(Intent(this, CaptureServiceVideo::class.java))
                 } else {
                     try {
@@ -157,7 +153,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private var videcCaptureEnabled = false
 
     private fun initUI() {
-
         setContentView(R.layout.act_main)
 
         // 設定UIの横幅が一定以上に広がらないようにする
@@ -186,12 +181,15 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
         tvButtonSizeError.vg(false)
         tvCodec = findViewById(R.id.tvCodec)
-        tvVideoError = findViewById(R.id.tvVideoError)
 
         val pref = App1.pref
 
         Pref.bpSavePng.bindSwitch(pref, findViewById(R.id.swSavePng))
         Pref.bpShowPostView.bindSwitch(pref, findViewById(R.id.swShowPostView))
+
+        Pref.bpLogToFile.bindSwitch(pref, findViewById(R.id.swLogToFile)) {
+            LogCategory.setLogToFile(this@ActMain, it)
+        }
 
         val etButtonSize: EditText = findViewById(R.id.etButtonSize)
         etButtonSize.setText(Pref.ipCameraButtonSize(pref).toString())
@@ -214,17 +212,26 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         Pref.spBitRate.bindEditText(pref, findViewById(R.id.etBitRate))
 
         // 動作環境により動画キャプチャができない場合、エラーを表示する
-        val message = if (MediaCodecInfoAndType.getList(this).isNotEmpty()) {
-            getString(R.string.video_codec_missing)
-        } else if (Build.VERSION.SDK_INT < API_MEDIA_MUXER_FILE_DESCRIPTER) {
-            getString(R.string.media_muxer_too_old)
+        val message = when {
 
-        } else {
-            null
+            Build.VERSION.SDK_INT < API_MEDIA_MUXER_FILE_DESCRIPTER ->
+                getString(R.string.media_muxer_too_old)
+
+            MediaCodecInfoAndType.getList(this).isEmpty() ->
+                getString(R.string.video_codec_missing)
+
+            else -> null
         }
+
+        val tvVideoError: TextView = findViewById(R.id.tvVideoError)
         tvVideoError.vg(message != null)?.text = message
         videcCaptureEnabled = message == null
 
+        val tvLogToFileDesc: TextView = findViewById(R.id.tvLogToFileDesc)
+        tvLogToFileDesc.text = getString(
+            R.string.output_log_to_file_desc,
+            LogCategory.getLogDirectory(this).canonicalPath
+        )
     }
 
     private fun showSaveFolder() {
@@ -251,16 +258,17 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     // サービスからも呼ばれる
     fun showButton() {
+        log.d("showButton")
         if (isDestroyed) return
         btnStartStopStill.setText(
-            if (isServiceAliveStill()) {
+            if (CaptureServiceStill.isAlive()) {
                 R.string.stop
             } else {
                 R.string.start
             }
         )
         btnStartStopVideo.setText(
-            if (isServiceAliveVideo()) {
+            if (CaptureServiceVideo.isAlive()) {
                 R.string.stop
             } else {
                 R.string.start
@@ -278,6 +286,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     // 権限のチェックと取得インタラクションの開始
     // 画面表示時や撮影ボタンの表示開始時に呼ばれる
     private fun dispatch() {
+        log.d("dispatch")
+
         if (!prepareOverlay()) return
 
         if (!prepareSaveTreeUri()) return

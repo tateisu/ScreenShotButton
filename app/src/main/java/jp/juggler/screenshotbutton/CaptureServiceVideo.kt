@@ -1,43 +1,25 @@
 package jp.juggler.screenshotbutton
 
-import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import java.lang.ref.WeakReference
 
-
-@SuppressLint("InflateParams")
 class CaptureServiceVideo : CaptureServiceBase(
     Pref.fpCameraButtonXVideo,
     Pref.fpCameraButtonYVideo,
     startButtonId = R.drawable.ic_videocam,
     notificationId = NOTIFICATION_ID_RUNNING_VIDEO
 ) {
-
     companion object {
-        // private val log = LogCategory("CaptureServiceVideo")
+        fun getService() = getServices().find { it is CaptureServiceVideo }
 
-        private var refService: WeakReference<CaptureServiceVideo>? = null
-        fun getService() = refService?.get()
+        fun isAlive() = getService() != null
     }
 
-    override fun onCreate() {
-        // 順序に注意。常にrefServiceの変更が先
-        refService = WeakReference(this)
-        super.onCreate()
-    }
-
-    override fun onDestroy() {
-        // 順序に注意。常にrefServiceの変更が先
-        refService = null
-        super.onDestroy()
-    }
-
-    override fun createNotificationChannel() :String{
+    override fun createNotificationChannel(): String {
         if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(

@@ -49,7 +49,9 @@
     <string name="frame_rate">Frame rate</string>
     <string name="bit_rate">Bit rate(bps)</string>
     <string name="color_format">Color format</string>
-    <string name="video_codec_missing">Video capturing is disabled because this device has no video codec.</string>
-    <string name="media_muxer_too_old">Video capturing is disabled because MediaMuxer API is too old.</string>
+    <string name="video_codec_missing">Video capturing is unavailable because this device has no video codec.</string>
+    <string name="media_muxer_too_old">Video capturing is unavailable because this app requires Android 8+ MediaMuxer API.</string>
+    <string name="output_log_to_file">Output debug log to file</string>
+    <string name="output_log_to_file_desc">If enabled, the debug log is output to the folder %1$s</string>
 
 </resources>
