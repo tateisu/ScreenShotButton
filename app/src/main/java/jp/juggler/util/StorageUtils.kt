@@ -95,7 +95,7 @@ private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): St
     }?.let {
         // API 29 だとグレーリストに入っていた
         // Accessing hidden method Landroid/os/storage/StorageVolume;->getPath()Ljava/lang/String; (greylist, reflection, allowed)
-        StorageVolume::class.java.getMethod("getPath").invoke(it) as? String
+        StorageVolume::class.java.getMethod("getPath").invoke(it).castOrNull<String>()
     } ?: error("can't find volume for uuid $uuid")
 
 @TargetApi(21)
@@ -108,48 +108,65 @@ private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): St
         }
 
         else -> {
-            val volumes = storageManager.javaClass.getMethod("getVolumeList").invoke(storageManager)
-                    as? Array<*> ?: error("storageManager.getVolumeList() failed.")
-            if (volumes.isEmpty()) error("storageManager.getVolumeList() is empty.")
-            val volumeClass = volumes[0]?.javaClass ?: error("volumes[0].javaClass is null.")
+
+            val volumes = storageManager.javaClass.getMethod("getVolumeList")
+                .invoke(storageManager)
+                .castOrNull<Array<*>>()
+                ?: error("storageManager.getVolumeList() failed.")
+
+            if (volumes.isEmpty())
+                error("storageManager.getVolumeList() is empty.")
+
+            val volumeClass = volumes.first()?.javaClass
+                ?: error("volumes[0].javaClass is null.")
+
             val getUuid = volumeClass.getMethod("getUuid")
+
             val volume = volumes.find {
                 it ?: return@find false
-                uuid == getUuid.invoke(it) as? String
-            } ?: "missing volume for uuid $uuid"
-            val state = volumeClass.getMethod("getState").invoke(volume) as? String
-            if (state != "mounted") error("uuid is not mounted. $state")
+                uuid == getUuid.invoke(it)
+            } ?: error("missing volume for uuid $uuid")
 
-            (volumeClass.getMethod("getPath").invoke(volume) as? String).notEmpty()
+            val state = volumeClass.getMethod("getState")
+                .invoke(volume)
+                .castOrNull<String>()
+
+            if (state != "mounted")
+                error("uuid is not mounted. $state")
+
+            volumeClass.getMethod("getPath")
+                .invoke(volume)
+                .castOrNull<String>()
+                .notEmpty()
                 ?: error("volume.getPath() failed.")
         }
     }
 
-fun pathFromDocumentUri(context: Context, uri: Uri): String? {
-    return try {
-        when {
+fun pathFromDocumentUri(context: Context, uri: Uri): String? = try {
+    when {
 
-            uri.authority == "file" -> return uri.path
+        uri.authority == "file" -> uri.path
 
-            isExternalStorageDocument(uri) -> {
-                val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
-                if (split.size < 2) error("document id has no semicolon.")
-                val storageManager =
-                    context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-                val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
-                    getVolumePathApi24(storageManager, split[0])
-                } else {
-                    getVolumePathApi21(storageManager, split[0])
-                }
-                "$volumePath/${split[1]}"
+        isExternalStorageDocument(uri) -> {
+            val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
+            if (split.size < 2) error("document id has no semicolon.")
+
+            val storageManager = systemService<StorageManager>(context)!!
+
+            val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
+                getVolumePathApi24(storageManager, split[0])
+            } else {
+                getVolumePathApi21(storageManager, split[0])
             }
 
-            else->error("pathFromDocumentUri: not supported $uri")
+            "$volumePath/${split[1]}"
         }
-    } catch (ex: Throwable) {
-        log.e( ex, "pathFromDocumentUri failed. $uri")
-        null
+
+        else -> error("pathFromDocumentUri: not supported $uri")
     }
+} catch (ex: Throwable) {
+    log.e(ex, "pathFromDocumentUri failed. $uri")
+    null
 }
 
 
@@ -177,9 +194,9 @@ fun generateDocument(
 fun deleteDocument(
     context: Context,
     itemUri: Uri
-): Boolean{
+): Boolean {
     // 削除に成功したら真
-    if(DocumentsContract.deleteDocument(context.contentResolver, itemUri))
+    if (DocumentsContract.deleteDocument(context.contentResolver, itemUri))
         return true
 
     // 削除できない場合、存在しないなら真
@@ -190,7 +207,7 @@ fun deleteDocument(
         null,
         null
     )?.use {
-        if(it.count==0) return true
+        if (it.count == 0) return true
     }
 
     // 削除できないが存在はしている…

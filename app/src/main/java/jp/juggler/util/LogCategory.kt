@@ -141,9 +141,9 @@ class LogCategory(private val tag: String) {
                         synchronized(writer) {
                             writer.appendHeader(lv, tag)
                                 .append(msg)
-                                .append(" : ")
+                                .append(", ")
                                 .append(error.javaClass.simpleName)
-                                .append(' ')
+                                .append(", ")
                                 .println(error.message ?: "?")
                             error.printStackTrace(writer)
                             writer.flush()

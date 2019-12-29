@@ -24,14 +24,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.math.min
-import android.media.MediaCodec
-import android.os.Bundle
 
 
 object Capture {
@@ -54,7 +51,7 @@ object Capture {
     private lateinit var mediaProjectionManager: MediaProjectionManager
     private lateinit var windowManager: WindowManager
 
-    private var screenCaptureIntent: Intent? = null
+    var screenCaptureIntent: Intent? = null
     private var mediaProjection: MediaProjection? = null
     private var mediaProjectionAddr = AtomicReference<String?>(null)
     private var mediaProjectionState = MediaProjectionState.Off
@@ -66,10 +63,8 @@ object Capture {
     fun onInitialize(context: Context) {
         log.d("onInitialize")
         mediaScannerTracker = MediaScannerTracker(context.applicationContext, handler)
-        mediaProjectionManager =
-            context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        windowManager =
-            context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        mediaProjectionManager = systemService(context)!!
+        windowManager = systemService(context)!!
     }
 
     // mediaProjection と screenCaptureIntentを解放する
@@ -107,23 +102,24 @@ object Capture {
     }
 
     fun handleScreenCaptureIntentResult(
-        activity: Activity,
+        context:Context,
         resultCode: Int,
         data: Intent?
     ): Boolean {
         log.d("handleScreenCaptureIntentResult")
         return when {
             resultCode != Activity.RESULT_OK -> {
-                log.eToast(activity, false, "permission not granted.")
+                log.eToast(context, false, "permission not granted.")
                 release()
             }
 
             data == null -> {
-                log.eToast(activity, false, "result data is null.")
+                log.eToast(context, false, "result data is null.")
                 release()
             }
 
             else -> {
+                log.i("screenCaptureIntent set!")
                 // 得られたインテントはExtrasにBinderProxyオブジェクトを含む。ファイルに保存とかは無理っぽい…
                 screenCaptureIntent = data
                 mediaProjectionState = MediaProjectionState.HasScreenCaptureIntent

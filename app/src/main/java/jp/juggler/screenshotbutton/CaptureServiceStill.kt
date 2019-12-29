@@ -7,12 +7,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 
-class CaptureServiceStill : CaptureServiceBase(
-    Pref.fpCameraButtonXStill,
-    Pref.fpCameraButtonYStill,
-    startButtonId = R.drawable.ic_camera,
-    notificationId = NOTIFICATION_ID_RUNNING_STILL
-) {
+class CaptureServiceStill : CaptureServiceBase(isVideo = false) {
     companion object {
 
         fun getService() = getServices().find{ it is CaptureServiceStill}
@@ -20,11 +15,11 @@ class CaptureServiceStill : CaptureServiceBase(
         fun isAlive() = getService() != null
     }
 
-    override fun createNotificationChannel() :String{
+    override fun createNotificationChannel(channelId:String) {
         if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(
-                    NOTIFICATION_CHANNEL_STILL,
+                    channelId,
                     getString(R.string.capture_standby_still),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
@@ -32,8 +27,6 @@ class CaptureServiceStill : CaptureServiceBase(
                 }
             )
         }
-
-        return NOTIFICATION_CHANNEL_STILL
     }
 
     override fun arrangeNotification(
@@ -79,8 +72,8 @@ class CaptureServiceStill : CaptureServiceBase(
         return intArrayOf(0)
     }
 
-    override fun afterCapture(captureResult: Capture.CaptureResult){
-        if (!isDestroyed && Pref.bpShowPostView(App1.pref)) {
+    override fun openPostView(captureResult: Capture.CaptureResult){
+        if (!isDestroyed ) {
             ActViewer.open(context, captureResult.documentUri)
         }
     }

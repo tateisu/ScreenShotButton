@@ -1,9 +1,9 @@
 package jp.juggler.util
 
 import android.app.AppOpsManager
-import android.app.NotificationManager
 import android.content.Context
 import android.graphics.*
+import android.hardware.display.DisplayManager
 import android.media.MediaCodec
 import android.net.Uri
 import android.os.Binder.getCallingUid
@@ -13,9 +13,10 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.DisplayMetrics
+import android.view.Display
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
+import androidx.core.content.ContextCompat.getSystemService
 import jp.juggler.screenshotbutton.API_APPLICATION_OVERLAY
 import java.util.*
 
@@ -33,8 +34,8 @@ fun Float.dp2px(dm: DisplayMetrics) =
 fun Int.px2dp(dm: DisplayMetrics) =
     this.toFloat() / dm.density
 
-fun <T:View> T?.vg(visible: Boolean): T? {
-    this?.visibility = if (visible) View.VISIBLE else  View.GONE
+fun <T : View> T?.vg(visible: Boolean): T? {
+    this?.visibility = if (visible) View.VISIBLE else View.GONE
     return if (visible) this else null
 }
 
@@ -70,6 +71,15 @@ fun createResizedBitmap(src: Bitmap, dstWidth: Int, dstHeight: Int): Bitmap {
         ?: error("createBitmap returns null")
 }
 
+// 型推論できる文脈だと型名を書かずにすむ
+@Suppress("unused")
+inline fun <reified T : Any> Any?.cast(): T = this as T
+
+inline fun <reified T : Any> Any?.castOrNull(): T? = this as? T
+
+// 型推論できる文脈だと型名を書かずにすむ
+inline fun <reified T> systemService(context: Context): T? =
+    /* ContextCompat. */ getSystemService(context, T::class.java)
 
 // Android 8.0 は Settings.canDrawOverlays(context) にバグがある
 // https://stackoverflow.com/questions/46173460/why-in-android-o-method-settings-candrawoverlays-returns-false-when-user-has
@@ -86,46 +96,44 @@ fun canDrawOverlaysCompat(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
         // AppOpsManager.checkOp() は API 29 でdeprecated
 
-        (context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager)
-            ?.let { manager ->
-                try {
-                    @Suppress("DEPRECATION")
-                    val result = manager.checkOp(
-                        AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
-                        getCallingUid(),
-                        context.packageName
-                    )
-                    return result == AppOpsManager.MODE_ALLOWED
-                } catch (_: Throwable) {
-                }
-            }
-    }
-
-    //id this fails, we definitely can't do it
-    (context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
-        ?.let { manager ->
+        systemService<AppOpsManager>(context)?.let { manager ->
             try {
-                val viewToAdd = View(context)
-                val params = WindowManager.LayoutParams(
-                    0,
-                    0,
-                    if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    } else {
-                        @Suppress("DEPRECATION")
-                        WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
-                    },
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSPARENT
+                @Suppress("DEPRECATION")
+                val result = manager.checkOp(
+                    AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
+                    getCallingUid(),
+                    context.packageName
                 )
-                viewToAdd.layoutParams = params
-                manager.addView(viewToAdd, params)
-                manager.removeView(viewToAdd)
-                return true
+                return result == AppOpsManager.MODE_ALLOWED
             } catch (_: Throwable) {
             }
         }
+    }
+
+    //id this fails, we definitely can't do it
+    systemService<WindowManager>(context)?.let { manager ->
+        try {
+            val viewToAdd = View(context)
+            val params = WindowManager.LayoutParams(
+                0,
+                0,
+                if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+                },
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSPARENT
+            )
+            viewToAdd.layoutParams = params
+            manager.addView(viewToAdd, params)
+            manager.removeView(viewToAdd)
+            return true
+        } catch (_: Throwable) {
+        }
+    }
 
     return false
 
@@ -141,8 +149,16 @@ fun runOnMainThread(block: () -> Unit) {
 }
 
 fun getScreenSize(context: Context) = Point().also {
-    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    windowManager.defaultDisplay.getRealSize(it)
+
+    //    systemService<WindowManager>(context)!!
+//        .defaultDisplay!!
+//        .getRealSize(it)
+
+    // https://github.com/google/grafika/blob/master/app/src/main/java/com/android/grafika/ScreenRecordActivity.java
+    // grafika のサンプルでは DisplayManager.getDisplay を使っていた
+    systemService<DisplayManager>(context)!!
+        .getDisplay(Display.DEFAULT_DISPLAY)!!
+        .getRealSize(it)
 }
 
 fun MediaCodec.suspend(suspend: Boolean) =
@@ -162,11 +178,11 @@ fun String?.toUriOrNull() =
         null
     }
 
-var View.isEnabledWithColor : Boolean
+var View.isEnabledWithColor: Boolean
     get() = isEnabled
-    set(value){
+    set(value) {
         isEnabled = value
-        alpha = if(value) 1f else 0.5f
+        alpha = if (value) 1f else 0.5f
     }
 
 fun getCurrentTimeString(): String {
@@ -181,6 +197,3 @@ fun getCurrentTimeString(): String {
         , cal.get(Calendar.SECOND)
     )
 }
-
-fun Context.getNotificationManager()=
-    getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

@@ -37,12 +37,14 @@
         <service
             android:name=".CaptureServiceStill"
             android:exported="false"
+            android:stopWithTask="false"
             android:foregroundServiceType="mediaProjection"
             tools:targetApi="q" />
 
         <service
             android:name=".CaptureServiceVideo"
             android:exported="false"
+            android:stopWithTask="false"
             android:foregroundServiceType="mediaProjection"
             tools:targetApi="q" />
 

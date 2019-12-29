@@ -7,23 +7,19 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 
-class CaptureServiceVideo : CaptureServiceBase(
-    Pref.fpCameraButtonXVideo,
-    Pref.fpCameraButtonYVideo,
-    startButtonId = R.drawable.ic_videocam,
-    notificationId = NOTIFICATION_ID_RUNNING_VIDEO
-) {
+class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
+
     companion object {
         fun getService() = getServices().find { it is CaptureServiceVideo }
-
         fun isAlive() = getService() != null
+
     }
 
-    override fun createNotificationChannel(): String {
+    override fun createNotificationChannel(channelId:String) {
         if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(
-                    NOTIFICATION_CHANNEL_VIDEO,
+                    channelId,
                     getString(R.string.capture_standby_video),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
@@ -31,7 +27,6 @@ class CaptureServiceVideo : CaptureServiceBase(
                 }
             )
         }
-        return NOTIFICATION_CHANNEL_VIDEO
     }
 
     override fun arrangeNotification(
@@ -104,8 +99,8 @@ class CaptureServiceVideo : CaptureServiceBase(
         return intArrayOf(0, 1)
     }
 
-    override fun afterCapture(captureResult: Capture.CaptureResult) {
-        if (!isDestroyed && Pref.bpShowPostView(App1.pref) && captureResult.mediaUri != null) {
+    override fun openPostView(captureResult: Capture.CaptureResult) {
+        if (!isDestroyed && captureResult.mediaUri != null) {
             startActivity(
                 Intent(Intent.ACTION_VIEW)
                     .apply {

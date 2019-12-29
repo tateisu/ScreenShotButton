@@ -47,9 +47,14 @@
     <string name="frame_rate">フレームレート</string>
     <string name="bit_rate">ビットレート(bps)</string>
     <string name="color_format">Color format</string>
-    <string name="video_codec_missing">このデバイスにはビデオコーデックがないため、動画記録を使用できません。</string>
-    <string name="media_muxer_too_old">このアプリはAndroid 8+ MediaMuxer APIを必要とするため、古いデバイスでは動画記録を使用できません。</string>
+    <string name="video_codec_missing">動画コーデックの不足により動画撮影機能を使えません。</string>
+    <string name="media_muxer_too_old">諸事情によりAndroid 8以上でないと動画撮影機能を使えません。</string>
     <string name="output_log_to_file">ログをファイルに出力する</string>
-    <string name="output_log_to_file_desc">ONにするとデバッグログはフォルダ %1$s に出力されます。</string>
+    <string name="output_log_to_file_desc">ログは %1$s に出力されます</string>
+
+    <string name="status_is">状態: %1$s</string>
+    <string name="status_running">動作中</string>
+    <string name="stopped_by">停止 %1$s</string>
+    <string name="stop_recording">録画停止</string>
 
 </resources>

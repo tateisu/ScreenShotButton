@@ -40,18 +40,21 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     private lateinit var btnStartStopStill: Button
     private lateinit var btnStartStopVideo: Button
+    private lateinit var btnStopRecording: Button
     private lateinit var tvButtonSizeError: TextView
     private lateinit var tvSaveFolder: TextView
     private lateinit var tvCodec: TextView
+    private lateinit var tvStatusStill: TextView
+    private lateinit var tvStatusVideo: TextView
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        App1.prepareAppState(this)
         log.d("onCreate savedInstanceState=$savedInstanceState")
         refActivity = WeakReference(this)
         super.onCreate(savedInstanceState)
-        App1.prepareAppState(this)
         initUI()
     }
 
@@ -98,11 +101,14 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 openSaveTreeUriChooser()
 
             R.id.btnStartStopStill ->
-                if (CaptureServiceStill.isAlive()) {
-                    stopService(Intent(this, CaptureServiceStill::class.java))
-                } else {
-                    timeStartButtonTappedStill = SystemClock.elapsedRealtime()
-                    dispatch()
+                when (val service = CaptureServiceStill.getService()) {
+                    null -> {
+                        timeStartButtonTappedStill = SystemClock.elapsedRealtime()
+                        dispatch()
+                    }
+                    else -> {
+                        service.stopWithReason("StopButton")
+                    }
                 }
 
             R.id.btnResetPositionStill -> {
@@ -114,17 +120,20 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             }
 
             R.id.btnStartStopVideo ->
-                if (CaptureServiceVideo.isAlive()) {
-                    stopService(Intent(this, CaptureServiceVideo::class.java))
-                } else {
-                    try {
-                        Capture.loadVideoSetting(this, App1.pref)
-                    } catch (ex: Throwable) {
-                        log.eToast(this, ex, "Video setting error.")
-                        return
+                when (val service = CaptureServiceVideo.getService()) {
+                    null -> {
+                        try {
+                            Capture.loadVideoSetting(this, App1.pref)
+                        } catch (ex: Throwable) {
+                            log.eToast(this, ex, "Video setting error.")
+                            return
+                        }
+                        timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
+                        dispatch()
                     }
-                    timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
-                    dispatch()
+                    else -> {
+                        service.stopWithReason("StopButton")
+                    }
                 }
 
             R.id.btnResetPositionVideo -> {
@@ -145,6 +154,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 }
                 ad.show(this, getString(R.string.codec))
             }
+
+            R.id.btnStopRecording ->
+                CaptureServiceVideo.getService()
+                    .runOnService(this) {
+                        captureStop()
+                    }
         }
     }
 
@@ -160,15 +175,20 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         val screenWidth = dm.widthPixels
         val pageWidth = 360f.dp2px(dm)
         val remain = max(0, screenWidth - pageWidth)
-        (findViewById<View>(R.id.svRoot).layoutParams as? ViewGroup.MarginLayoutParams)
+
+        findViewById<View>(R.id.svRoot)
+            .layoutParams
+            .castOrNull<ViewGroup.MarginLayoutParams>()
             ?.marginEnd = remain
 
         btnStartStopStill = findViewById(R.id.btnStartStopStill)
         btnStartStopVideo = findViewById(R.id.btnStartStopVideo)
+        btnStopRecording = findViewById(R.id.btnStopRecording)
 
         arrayOf(
             btnStartStopStill,
             btnStartStopVideo,
+            btnStopRecording,
             findViewById<View>(R.id.btnSaveFolder),
             findViewById<View>(R.id.btnResetPositionStill),
             findViewById<View>(R.id.btnResetPositionVideo),
@@ -181,6 +201,8 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
         tvButtonSizeError.vg(false)
         tvCodec = findViewById(R.id.tvCodec)
+        tvStatusStill = findViewById(R.id.tvStatusStill)
+        tvStatusVideo = findViewById(R.id.tvStatusVideo)
 
         val pref = App1.pref
 
@@ -223,9 +245,14 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             else -> null
         }
 
-        val tvVideoError: TextView = findViewById(R.id.tvVideoError)
-        tvVideoError.vg(message != null)?.text = message
         videcCaptureEnabled = message == null
+
+        if (!videcCaptureEnabled) {
+            tvStatusVideo.setTextColor(ContextCompat.getColor(this, R.color.colorTextError))
+            tvStatusVideo.text = message
+
+            btnStopRecording.visibility = View.INVISIBLE
+        }
 
         val tvLogToFileDesc: TextView = findViewById(R.id.tvLogToFileDesc)
         tvLogToFileDesc.text = getString(
@@ -280,8 +307,39 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         btnStartStopStill.isEnabledWithColor = !isCapturing
 
         btnStartStopVideo.isEnabledWithColor = !isCapturing && videcCaptureEnabled
-    }
 
+        btnStopRecording.isEnabledWithColor = CaptureServiceBase.isVideoCapturing()
+
+        tvStatusStill.text = getString(
+            R.string.status_is,
+            when {
+                CaptureServiceStill.isAlive() ->
+                    getString(R.string.status_running)
+                else ->
+                    getString(
+                        R.string.stopped_by,
+                        CaptureServiceBase.getStopReason(CaptureServiceStill::class.java)
+                            ?: ""
+                    )
+            }
+        )
+
+        if (videcCaptureEnabled) {
+            tvStatusVideo.text = getString(
+                R.string.status_is,
+                when {
+                    CaptureServiceVideo.isAlive() ->
+                        getString(R.string.status_running)
+                    else ->
+                        getString(
+                            R.string.stopped_by,
+                            CaptureServiceBase.getStopReason(CaptureServiceVideo::class.java)
+                                ?: ""
+                        )
+                }
+            )
+        }
+    }
 
     // 権限のチェックと取得インタラクションの開始
     // 画面表示時や撮影ボタンの表示開始時に呼ばれる
@@ -299,7 +357,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             timeStartButtonTappedStill = 0L
             ContextCompat.startForegroundService(
                 this,
-                Intent(this, CaptureServiceStill::class.java)
+                Intent(this, CaptureServiceStill::class.java).apply {
+                    Capture.screenCaptureIntent?.let {
+                        putExtra(CaptureServiceBase.EXTRA_SCREEN_CAPTURE_INTENT, it)
+                    }
+                }
             )
         }
 
@@ -310,7 +372,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             timeStartButtonTappedVideo = 0L
             ContextCompat.startForegroundService(
                 this,
-                Intent(this, CaptureServiceVideo::class.java)
+                Intent(this, CaptureServiceVideo::class.java).apply {
+                    Capture.screenCaptureIntent?.let {
+                        putExtra(CaptureServiceBase.EXTRA_SCREEN_CAPTURE_INTENT, it)
+                    }
+                }
             )
         }
     }
