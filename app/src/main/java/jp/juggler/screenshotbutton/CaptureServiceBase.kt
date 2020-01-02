@@ -255,7 +255,7 @@ abstract class CaptureServiceBase(
                 captureJob?.get()?.join()
             }
             log.i("onDestroy: captureJob join end")
-            Capture.release()
+            Capture.release("service.onDestroy")
         }
 
         showButtonAll()
@@ -269,9 +269,9 @@ abstract class CaptureServiceBase(
 
         reloadPosition()
 
-        if (!isCapturing()) {
+        if (!isCapturing() && Capture.canCapture() ) {
             try {
-                Capture.updateMediaProjection()
+                Capture.updateMediaProjection("service.onConfigurationChanged")
             } catch (ex: Throwable) {
                 log.eToast(this, ex, "updateMediaProjection failed.")
                 stopWithReason("UpdateMediaProjectionFailedAtConfigurationChanged")

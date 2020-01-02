@@ -68,8 +68,8 @@ object Capture {
     }
 
     // mediaProjection と screenCaptureIntentを解放する
-    fun release(): Boolean {
-        log.d("release")
+    fun release(caller:String): Boolean {
+        log.d("release. caller=$caller")
 
         if (mediaProjection != null) {
             log.d("MediaProjection close.")
@@ -110,12 +110,12 @@ object Capture {
         return when {
             resultCode != Activity.RESULT_OK -> {
                 log.eToast(context, false, "permission not granted.")
-                release()
+                release("handleScreenCaptureIntentResult: permission not granted.")
             }
 
             data == null -> {
                 log.eToast(context, false, "result data is null.")
-                release()
+                release("handleScreenCaptureIntentResult: intent is null.")
             }
 
             else -> {
@@ -132,12 +132,12 @@ object Capture {
         mediaProjection != null && mediaProjectionAddr.get() != null
 
     // throw error if failed.
-    fun updateMediaProjection() {
-        log.d("updateMediaProjection")
+    fun updateMediaProjection(caller:String) {
+        log.d("updateMediaProjection caller=$caller")
 
         val screenCaptureIntent = this.screenCaptureIntent
         if (screenCaptureIntent == null) {
-            release()
+            release("updateMediaProjection: screenCaptureIntent is null")
             error("screenCaptureIntent is null")
         }
 
@@ -150,7 +150,7 @@ object Capture {
         this.mediaProjection = mediaProjection
 
         if (mediaProjection == null) {
-            release()
+            release("updateMediaProjection: getMediaProjection returns null.")
             error("getMediaProjection() returns null")
         }
 
@@ -308,7 +308,7 @@ object Capture {
             densityDpi = context.resources.displayMetrics.densityDpi
 
             if (!canCapture())
-                updateMediaProjection()
+                updateMediaProjection("CaptureEnv.ctor")
 
         }
 
