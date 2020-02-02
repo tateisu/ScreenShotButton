@@ -502,7 +502,7 @@ abstract class CaptureServiceBase(
                     log.e( ex, "capture failed.")
 
                     try {
-                        suspendCoroutine<String> { cont ->
+                        val state = suspendCoroutine<Capture.MediaProjectionState> { cont ->
                             ActScreenCaptureIntent.cont = cont
                             startActivity(
                                 Intent(
@@ -512,6 +512,10 @@ abstract class CaptureServiceBase(
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                                 }
                             )
+                        }
+                        if(state !=  Capture.MediaProjectionState.HasScreenCaptureIntent){
+                            log.d("resumed state is $state")
+                            break
                         }
                         Capture.updateMediaProjection("recovery")
                         delay(500L)

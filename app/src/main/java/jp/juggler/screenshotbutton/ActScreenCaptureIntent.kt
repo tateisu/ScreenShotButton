@@ -16,7 +16,7 @@ class ActScreenCaptureIntent :AppCompatActivity(){
         private val log = LogCategory("ActScreenCaptureIntent")
         private const val REQUEST_CODE_SCREEN_CAPTURE = 1
 
-        var cont : Continuation<String>? = null
+        var cont : Continuation<Capture.MediaProjectionState>? = null
             set(value){
                 try {
                     field?.resumeWithException(RuntimeException("overwrite by new creation"))
@@ -49,10 +49,12 @@ class ActScreenCaptureIntent :AppCompatActivity(){
         when (requestCode) {
             REQUEST_CODE_SCREEN_CAPTURE ->{
                 Capture.handleScreenCaptureIntentResult(this, resultCode, data)
-                if( Capture.mediaProjectionState != Capture.MediaProjectionState.RequestingScreenCaptureIntent){
-                    cont?.resume("OVER")
-                    finish()
+                try {
+                    cont?.resume(Capture.mediaProjectionState)
+                }catch(_:Throwable){
+
                 }
+                finish()
             }
         }
     }
