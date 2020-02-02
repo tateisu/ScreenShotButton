@@ -34,6 +34,12 @@
             android:taskAffinity="jp.juggler.screenshotbutton.viewer"
             android:theme="@style/AppTheme.Viewer" />
 
+        <activity
+            android:name=".ActScreenCaptureIntent"
+            android:launchMode="singleTop"
+            android:taskAffinity="jp.juggler.screenshotbutton.asci"
+            android:theme="@style/AppTheme.Transparent" />
+
         <service
             android:name=".CaptureServiceStill"
             android:exported="false"

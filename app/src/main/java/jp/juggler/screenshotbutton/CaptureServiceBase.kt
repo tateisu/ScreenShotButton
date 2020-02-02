@@ -5,6 +5,7 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -16,6 +17,7 @@ import jp.juggler.util.*
 import kotlinx.coroutines.*
 import java.lang.ref.WeakReference
 import java.util.*
+import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -277,6 +279,11 @@ abstract class CaptureServiceBase(
                 stopWithReason("UpdateMediaProjectionFailedAtConfigurationChanged")
             }
         }
+        /*
+            プロセス生成直後、 onCreate の後 onStart** が呼ばれる前に onConfigurationChanged が何度か呼ばれる場合がある。
+            この時は updateMediaProjection() を呼び出して screenCaptureIntent==null で例外を出してサービスを止めてしまってはいけない。
+            既にmediaProjectionが存在する&& キャプチャ中ではない場合のみ updateMediaProjection() を呼び出すべきだ。
+        */
     }
 
     override fun onClick(v: View?) {
@@ -476,19 +483,48 @@ abstract class CaptureServiceBase(
         showButtonAll()
         isVideoCaptureJob = isVideo
         captureJob = WeakReference(GlobalScope.launch(Dispatchers.IO) {
-            try {
-                val captureResult = Capture.capture(
-                    context,
-                    timeClick,
-                    isVideo = this@CaptureServiceBase is CaptureServiceVideo
-                )
-                runOnMainThread {
-                    if (Pref.bpShowPostView(App1.pref)) {
-                        openPostView(captureResult)
+            for( nTry in 1..3) {
+                log.d("try $nTry")
+                try {
+                    val captureResult = Capture.capture(
+                        context,
+                        timeClick,
+                        isVideo = this@CaptureServiceBase is CaptureServiceVideo
+                    )
+                    runOnMainThread {
+                        if (Pref.bpShowPostView(App1.pref)) {
+                            openPostView(captureResult)
+                        }
                     }
+                    break
+                }catch(ex: Capture.ScreenCaptureIntentError){
+
+                    log.e( ex, "capture failed.")
+
+                    try {
+                        suspendCoroutine<String> { cont ->
+                            ActScreenCaptureIntent.cont = cont
+                            startActivity(
+                                Intent(
+                                    this@CaptureServiceBase,
+                                    ActScreenCaptureIntent::class.java
+                                ).apply{
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                                }
+                            )
+                        }
+                        Capture.updateMediaProjection("recovery")
+                        delay(500L)
+                        continue
+                    }catch(ex:Throwable){
+                        log.eToast(context, ex, "recovery failed.")
+                        break
+                    }
+
+                } catch (ex: Throwable) {
+                    log.eToast(context, ex, "capture failed.")
+                    break
                 }
-            } catch (ex: Throwable) {
-                log.eToast(context, ex, "capture failed.")
             }
         })
     }

@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.lang.IllegalStateException
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -37,7 +38,7 @@ object Capture {
     private const val ERROR_BLANK_IMAGE = "captured image is blank."
     private const val ERROR_STOP_BY_USER = "stop by user control."
 
-    private enum class MediaProjectionState {
+    enum class MediaProjectionState {
         Off,
         RequestingScreenCaptureIntent,
         HasScreenCaptureIntent,
@@ -54,7 +55,7 @@ object Capture {
     var screenCaptureIntent: Intent? = null
     private var mediaProjection: MediaProjection? = null
     private var mediaProjectionAddr = AtomicReference<String?>(null)
-    private var mediaProjectionState = MediaProjectionState.Off
+    var mediaProjectionState = MediaProjectionState.Off
 
     private val videoStopReason = AtomicReference<Throwable>(null)
     private var lastEncoderOutput = 0L
@@ -83,6 +84,13 @@ object Capture {
         return false
     }
 
+    fun startScreenCaptureIntent(activity: Activity, requestCode: Int) {
+        log.d("createScreenCaptureIntent")
+        val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
+        activity.startActivityForResult(permissionIntent, requestCode)
+        mediaProjectionState = MediaProjectionState.RequestingScreenCaptureIntent
+    }
+
     fun prepareScreenCaptureIntent(activity: Activity, requestCode: Int): Boolean {
         log.d("prepareScreenCaptureIntent")
         return when (mediaProjectionState) {
@@ -92,10 +100,7 @@ object Capture {
             MediaProjectionState.RequestingScreenCaptureIntent -> false
 
             MediaProjectionState.Off -> {
-                log.d("createScreenCaptureIntent")
-                val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
-                activity.startActivityForResult(permissionIntent, requestCode)
-                mediaProjectionState = MediaProjectionState.RequestingScreenCaptureIntent
+                startScreenCaptureIntent(activity,requestCode)
                 false
             }
         }
@@ -131,6 +136,8 @@ object Capture {
     fun canCapture() =
         mediaProjection != null && mediaProjectionAddr.get() != null
 
+    class ScreenCaptureIntentError(msg:String) :IllegalStateException(msg)
+
     // throw error if failed.
     fun updateMediaProjection(caller:String) {
         log.d("updateMediaProjection caller=$caller")
@@ -138,7 +145,7 @@ object Capture {
         val screenCaptureIntent = this.screenCaptureIntent
         if (screenCaptureIntent == null) {
             release("updateMediaProjection: screenCaptureIntent is null")
-            error("screenCaptureIntent is null")
+            throw ScreenCaptureIntentError("screenCaptureIntent is null")
         }
 
         // 以前のMediaProjectionを停止させないとgetMediaProjectionはエラーを返す
@@ -151,7 +158,7 @@ object Capture {
 
         if (mediaProjection == null) {
             release("updateMediaProjection: getMediaProjection returns null.")
-            error("getMediaProjection() returns null")
+            throw ScreenCaptureIntentError("getMediaProjection() returns null")
         }
 
         mediaProjectionState = MediaProjectionState.HasMediaProjection
