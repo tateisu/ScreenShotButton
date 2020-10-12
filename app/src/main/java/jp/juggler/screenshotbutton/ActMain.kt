@@ -403,11 +403,18 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     private fun prepareSaveTreeUri(): Boolean {
         val treeUri = Pref.spSaveTreeUri(App1.pref).toUriOrNull()
-        if (treeUri != null &&
-            pathFromDocumentUri(this, treeUri) != null &&
-            contentResolver.persistedUriPermissions.find { it.uri == treeUri } != null
-        ) {
-            return true
+
+        if (treeUri != null) {
+            if (!contentResolver.persistedUriPermissions.any { it.uri == treeUri }) {
+                log.eToast(this, true, "missing access permission $treeUri")
+            } else {
+                try {
+                    pathFromDocumentUriOrThrow(this, treeUri)
+                    return true
+                } catch (ex: Throwable) {
+                    log.eToast(this, ex, "can't use this folder.")
+                }
+            }
         }
 
         AlertDialog.Builder(this)

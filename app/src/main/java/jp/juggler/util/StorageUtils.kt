@@ -142,28 +142,63 @@ private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): St
         }
     }
 
-fun pathFromDocumentUri(context: Context, uri: Uri): String? = try {
-    when {
+//fun getDataColumn(
+//    context: Context,
+//    uri: Uri,
+//    selection: String?,
+//    selectionArgs: Array<String?>?
+//): String? {
+//    val projection = arrayOf(MediaStore.Files.FileColumns.DATA)
+//    context.contentResolver
+//        .query(uri, projection, selection, selectionArgs, null)
+//        .use{
+//            if( it!=null && it.moveToNext()) return it.getString(0)
+//        }
+//    return null
+//}
 
-        uri.authority == "file" -> uri.path
+fun pathFromDocumentUriOrThrow(context: Context, uri: Uri) = when {
 
-        isExternalStorageDocument(uri) -> {
-            val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
-            if (split.size < 2) error("document id has no semicolon.")
+    uri.authority == "file" -> uri.path ?: "/"
 
-            val storageManager = systemService<StorageManager>(context)!!
+    isExternalStorageDocument(uri) -> {
+        val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
+        if (split.size < 2) error("document id has no semicolon.")
 
-            val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
-                getVolumePathApi24(storageManager, split[0])
-            } else {
-                getVolumePathApi21(storageManager, split[0])
-            }
+        val storageManager = systemService<StorageManager>(context)!!
 
-            "$volumePath/${split[1]}"
+        val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
+            getVolumePathApi24(storageManager, split[0])
+        } else {
+            getVolumePathApi21(storageManager, split[0])
         }
 
-        else -> error("pathFromDocumentUri: not supported $uri")
+        "$volumePath/${split[1]}"
     }
+
+//    uri.authority == "com.android.providers.downloads.documents" ->
+//        error("please find the normal folder from storage top, instead of meta folder.")
+//        {
+//            if( uri.path == "/tree/downloads")
+//                "(Downloads)"
+//            else{
+//                val id = DocumentsContract.getDocumentId(uri)
+//                val uri2 = ContentUris.withAppendedId(
+//                    Uri.parse("content://downloads/public_downloads"),
+//                    id.toLong()
+//                )
+//                    getDataColumn(context, uri2, null, null) ?: error("can't path of $uri and $uri2")
+//                    // メディアスキャナに登録される前だと IllegalArgumentException: Unknown URI: content://downloads/public_downloads/6297 となる
+//            }
+//        }
+
+    else ->
+        error("Please specify the regular folder inside the storage top. This app does not support meta folders such as Downloads and Recents.")
+}
+
+
+fun pathFromDocumentUri(context: Context, uri: Uri): String? = try {
+    pathFromDocumentUriOrThrow(context, uri)
 } catch (ex: Throwable) {
     log.e(ex, "pathFromDocumentUri failed. $uri")
     null
