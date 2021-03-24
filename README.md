@@ -15,6 +15,7 @@ Android app that shows overlay screen shot button.
 - please find the APK file from assets in each release. https://github.com/tateisu/ScreenShotButton/releases
 
 ### Tested devices
+- API 30 Android 11 Samsung Galaxy Tab S6 (SM-T860) (ScreenShotButton ver 5)
 - API 29 Android 10 Essential PH-1 Phone 
 - API 28 Android 9 Huawei CMR-W19 MediaPad M5 Pro 
 - API 27 Android 8.1 Google bullhead Nexus 5X (Google store,2015) 
@@ -34,4 +35,4 @@ This app shows the 'post view' after tap shutter button.
 ![Screenshot_20191221_232724_jp juggler screenshotbutton](https://user-images.githubusercontent.com/333944/71309446-0b5cce00-244b-11ea-84c6-180f9b7e562c.jpg)
 
 ### Motivation
-I don't think this app has anything new, but I needed code that I can hack freely to solve problems on my device.
+I think this app has no something new, but I need codes that I can hack freely to solve problems on my device.
