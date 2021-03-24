@@ -222,13 +222,6 @@ object Pref {
         ""
     )
 
-    val spScopedSaveFolder = StringPref(
-        "ScopedSaveFolder",
-        ""
-    )
-
-    val useScopedSaveFolder = false // Build.VERSION.SDK_INT>=30
-
     val spCodec = StringPref(
         "Codec",
         ""

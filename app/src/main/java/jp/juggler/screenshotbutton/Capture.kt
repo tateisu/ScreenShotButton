@@ -280,26 +280,18 @@ object Capture {
     private class CaptureFile(val context: Context, mimeType: String){
 
         private val documentUri :Uri?
+
+        // 盲腸
         private val file:File?
 
         init{
-            if(  Pref.useScopedSaveFolder  ){
-                documentUri =null
-                file = generateFile(
-                    context,
-                    Pref.spScopedSaveFolder(App1.pref),
-                    getCurrentTimeString(),
-                    mimeType
-                )
-            }else{
-                file=null
-                documentUri = generateDocument(
-                    context,
-                    Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                    getCurrentTimeString(),
-                    mimeType
-                )
-            }
+            file=null
+            documentUri = generateDocument(
+                context,
+                Uri.parse(Pref.spSaveTreeUri(App1.pref)),
+                getCurrentTimeString(),
+                mimeType
+            )
         }
 
         val uri: Uri
@@ -308,10 +300,7 @@ object Capture {
         val path : String?
             get(){
                 file?.let{ return it.canonicalPath}
-                return if( Build.VERSION.SDK_INT >= 30)
-                    null
-                else
-                    documentUri?.let{ pathFromDocumentUri(context, it)}
+                return documentUri?.let{ pathFromDocumentUri(context, it)}
             }
 
         fun openFileDescriptor(): ParcelFileDescriptor? =

@@ -11,9 +11,9 @@ import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.core.content.ContextCompat
 import jp.juggler.screenshotbutton.API_STORAGE_VOLUME
 import jp.juggler.screenshotbutton.App1
-import java.io.File
 
 @Suppress("unused")
 private val log = LogCategory("${App1.tagPrefix}/StorageUtils")
@@ -87,6 +87,23 @@ private fun getDocumentId(documentUri: Uri): String {
     error("getDocumentId() can'f find ID from $documentUri")
 }
 
+private val reAndroidDataFolder = """/Android/data/.*""".toRegex()
+
+@TargetApi(30)
+private fun getVolumePathApi30(context:Context, uuid: String): String{
+    val list = ContextCompat.getExternalFilesDirs(context, null).map{ it.canonicalPath }
+    val path = if( uuid == "primary") {
+        // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
+        list.firstOrNull()
+    }else {
+        // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
+        list.find {
+            it.contains(uuid, ignoreCase = true)
+        }
+    }
+    return path?.replace(reAndroidDataFolder, "")
+        ?: error("can't find volume for uuid $uuid")
+}
 
 @TargetApi(24)
 private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): String =
@@ -168,7 +185,9 @@ fun pathFromDocumentUriOrThrow(context: Context, uri: Uri) = when {
 
         val storageManager = systemService<StorageManager>(context)!!
 
-        val volumePath = if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
+        val volumePath = if( Build.VERSION.SDK_INT >= 30 ){
+            getVolumePathApi30(context, split[0])
+        }else if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
             getVolumePathApi24(storageManager, split[0])
         } else {
             getVolumePathApi21(storageManager, split[0])
@@ -203,37 +222,6 @@ fun pathFromDocumentUri(context: Context, uri: Uri): String? = try {
 } catch (ex: Throwable) {
     log.e(ex, "pathFromDocumentUri failed. $uri")
     null
-}
-
-fun generateFile(
-    context: Context,
-    directory:String,
-    baseName: String,
-    mimeType: String
-): File {
-    val ext = when(mimeType){
-        "video/mp4" -> "mp4"
-            "image/png" -> "png"
-            "image/jpeg" ->"jpg"
-        else->"data"
-    }
-
-    val dir = File(directory)
-    if( ! dir.isDirectory ) error("not directory. $directory")
-    if( ! dir.canWrite() ) error("can't write to directory. $directory")
-
-    var n = 0
-    var file :File
-    do{
-        ++n
-        file = if (n == 1) {
-            File(dir, "$baseName.$ext")
-        } else {
-            File(dir, "$baseName-$n.$ext")
-        }
-    }while(file.exists())
-
-    return file
 }
 
 fun generateDocument(

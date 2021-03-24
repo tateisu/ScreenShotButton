@@ -16,3 +16,4 @@
 
 *.apk
 output.json
+/app/release/

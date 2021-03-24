@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.Settings
@@ -21,8 +20,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import jp.juggler.util.*
-import java.io.File
-import java.io.FileOutputStream
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -193,9 +190,9 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             btnStartStopVideo,
             btnStopRecording,
             findViewById<View>(R.id.btnSaveFolder),
-            findViewById<View>(R.id.btnResetPositionStill),
-            findViewById<View>(R.id.btnResetPositionVideo),
-            findViewById<View>(R.id.btnCodecEdit)
+            findViewById(R.id.btnResetPositionStill),
+            findViewById(R.id.btnResetPositionVideo),
+            findViewById(R.id.btnCodecEdit)
         ).forEach {
             it?.setOnClickListener(this)
         }
@@ -265,23 +262,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     }
 
 
-
     private fun showSaveFolder() {
-        tvSaveFolder.text = if( Pref.useScopedSaveFolder ){
-            Pref.spScopedSaveFolder(App1.pref)  .notEmpty()
-                ?:  getString(R.string.not_selected)
-        }else {
-            Pref.spSaveTreeUri(App1.pref)
-                .notEmpty()
-                ?.let {
-                    if( Build.VERSION.SDK_INT >= 30){
-                        it
-                    }else{
-                        pathFromDocumentUri(this, Uri.parse(it))
-                    }
-                }
-                ?: getString(R.string.not_selected)
-        }
+        tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
+            .notEmpty()
+            ?.let { pathFromDocumentUri(this, Uri.parse(it)) }
+            ?: getString(R.string.not_selected)
     }
 
     private fun showCurrentCodec() {
@@ -401,102 +386,49 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     // 保存フォルダの選択と書き込み権限
 
     private fun openSaveTreeUriChooser() {
-        if ( Pref.useScopedSaveFolder ) {
-            Handler(mainLooper).postDelayed({
-                val items = ContextCompat.getExternalFilesDirs(applicationContext, null)
-                    .map{ it.canonicalPath}
-                    .toTypedArray()
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.save_folder)
-                    .setItems(items){ dialog,which ->
-                        if( which in items.indices){
-                            dialog.dismiss()
-                            App1.pref.edit().put(Pref.spScopedSaveFolder, items[which]).apply()
-                            showSaveFolder()
-                            dispatch()
-                        }
+        startActivityForResult(
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                if (Build.VERSION.SDK_INT >= API_EXTRA_INITIAL_URI) {
+                    val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
+                    if (saveTreeUri.isNotEmpty()) {
+                        putExtra(
+                            DocumentsContract.EXTRA_INITIAL_URI,
+                            saveTreeUri
+                        )
                     }
-                    .setNegativeButton(R.string.cancel,null)
-                    .showEx()
-            },500L)
-
-        } else {
-            startActivityForResult(
-                Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                    if (Build.VERSION.SDK_INT >= API_EXTRA_INITIAL_URI) {
-                        val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
-                        if (saveTreeUri.isNotEmpty()) {
-                            putExtra(
-                                DocumentsContract.EXTRA_INITIAL_URI,
-                                saveTreeUri
-                            )
-                        }
-                    }
-                },
-                REQUEST_CODE_DOCUMENT_TREE
-            )
-        }
+                }
+            },
+            REQUEST_CODE_DOCUMENT_TREE
+        )
     }
 
     private fun prepareSaveTreeUri(): Boolean {
-        if ( Pref.useScopedSaveFolder ) {
-            val saveFolderPath = Pref.spScopedSaveFolder(App1.pref)
-            val saveFolder = saveFolderPath.notEmpty()?.let { File(saveFolderPath) }
-            if (saveFolder != null) {
-                val testFile = File(saveFolder, ".keep")
+        val treeUri = Pref.spSaveTreeUri(App1.pref).toUriOrNull()
+
+        if (treeUri != null) {
+            if (!contentResolver.persistedUriPermissions.any { it.uri == treeUri }) {
+                log.eToast(this, true, "missing access permission $treeUri")
+            } else {
                 try {
-                    FileOutputStream(testFile).use {
-                        it.write("access test".encodeToByteArray())
-                    }
+                    // pathの検証。例外を出す
+                    pathFromDocumentUriOrThrow(this, treeUri)
                     return true
                 } catch (ex: Throwable) {
-                    log.e(ex, "save folder access test failed. $saveFolderPath")
-                    log.eToast(this, ex, "save folder access test failed. $saveFolderPath")
+                    log.eToast(this, ex, "can't use this folder.")
                 }
             }
-
-            AlertDialog.Builder(this)
-                .setMessage(R.string.please_select_save_folder)
-                .setPositiveButton(R.string.ok)
-                { _, _ ->
-                    openSaveTreeUriChooser()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .showEx()
-
-            return false
-        } else {
-            val treeUri = Pref.spSaveTreeUri(App1.pref).toUriOrNull()
-
-            if (treeUri != null) {
-                if (!contentResolver.persistedUriPermissions.any { it.uri == treeUri }) {
-                    log.eToast(this, true, "missing access permission $treeUri")
-                } else {
-                    try {
-                        if( Build.VERSION.SDK_INT>=30){
-                            // pathの検証は行えない。何もしない
-                        }else {
-                            // pathの検証。例外を出す
-                            pathFromDocumentUriOrThrow(this, treeUri)
-                        }
-                        return true
-                    } catch (ex: Throwable) {
-                        log.eToast(this, ex, "can't use this folder.")
-                    }
-                }
-            }
-
-            AlertDialog.Builder(this)
-                .setMessage(R.string.please_select_save_folder)
-                .setPositiveButton(R.string.ok)
-                { _, _ ->
-                    openSaveTreeUriChooser()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .showEx()
-
-            return false
         }
+
+        AlertDialog.Builder(this)
+            .setMessage(R.string.please_select_save_folder)
+            .setPositiveButton(R.string.ok)
+            { _, _ ->
+                openSaveTreeUriChooser()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .showEx()
+
+        return false
     }
 
     private fun handleSaveTreeUriResult(resultCode: Int, data: Intent?): Boolean {

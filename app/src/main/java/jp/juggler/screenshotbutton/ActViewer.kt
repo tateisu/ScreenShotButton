@@ -7,7 +7,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
 import android.view.View
@@ -42,7 +41,7 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
 
             when {
                 isExternalStorageDocument(uri) -> {
-                    if(!deleteDocument(context,uri)) error("deleteDocument returns false")
+                    if (!deleteDocument(context, uri)) error("deleteDocument returns false")
                 }
 
                 else -> {
@@ -210,18 +209,15 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
 
         this.lastUri = uri
 
-        val path = if(Build.VERSION.SDK_INT >= 30 ) {
-            uri.toString()
-        }else{
-            pathFromDocumentUri(this, uri)
-                ?: error("can't get path from document uri")
-        }
+        val path = pathFromDocumentUri(this, uri)
+            ?: error("can't get path from document uri")
 
-        launch {
+        launch{
             try {
                 tvDesc.text = "loading…\n$path"
 
                 val bitmap = withContext(Dispatchers.IO) {
+                    @Suppress("BlockingMethodInNonBlockingContext")
                     contentResolver.openInputStream(uri).use {
                         BitmapFactory.decodeStream(it)
                     }
