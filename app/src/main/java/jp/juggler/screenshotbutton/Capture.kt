@@ -1,5 +1,6 @@
 package jp.juggler.screenshotbutton
 
+import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
@@ -14,20 +15,16 @@ import android.media.*
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.SystemClock
+import android.os.*
 import android.view.Surface
 import android.view.WindowManager
 import jp.juggler.util.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import java.lang.IllegalStateException
+import kotlinx.coroutines.*
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.math.min
 
@@ -69,7 +66,7 @@ object Capture {
     }
 
     // mediaProjection と screenCaptureIntentを解放する
-    fun release(caller:String): Boolean {
+    fun release(caller: String): Boolean {
         log.d("release. caller=$caller")
 
         if (mediaProjection != null) {
@@ -100,14 +97,14 @@ object Capture {
             MediaProjectionState.RequestingScreenCaptureIntent -> false
 
             MediaProjectionState.Off -> {
-                startScreenCaptureIntent(activity,requestCode)
+                startScreenCaptureIntent(activity, requestCode)
                 false
             }
         }
     }
 
     fun handleScreenCaptureIntentResult(
-        context:Context,
+        context: Context,
         resultCode: Int,
         data: Intent?
     ): Boolean {
@@ -136,10 +133,10 @@ object Capture {
     fun canCapture() =
         mediaProjection != null && mediaProjectionAddr.get() != null
 
-    class ScreenCaptureIntentError(msg:String) :IllegalStateException(msg)
+    class ScreenCaptureIntentError(msg: String) :IllegalStateException(msg)
 
     // throw error if failed.
-    fun updateMediaProjection(caller:String) {
+    fun updateMediaProjection(caller: String) {
         log.d("updateMediaProjection caller=$caller")
 
         val screenCaptureIntent = this.screenCaptureIntent
@@ -280,6 +277,60 @@ object Capture {
         val mediaUri: Uri?
     )
 
+    private class CaptureFile(val context: Context, mimeType: String){
+
+        private val documentUri :Uri?
+        private val file:File?
+
+        init{
+            if(  Pref.useScopedSaveFolder  ){
+                documentUri =null
+                file = generateFile(
+                    context,
+                    Pref.spScopedSaveFolder(App1.pref),
+                    getCurrentTimeString(),
+                    mimeType
+                )
+            }else{
+                file=null
+                documentUri = generateDocument(
+                    context,
+                    Uri.parse(Pref.spSaveTreeUri(App1.pref)),
+                    getCurrentTimeString(),
+                    mimeType
+                )
+            }
+        }
+
+        val uri: Uri
+            get() = documentUri?.let{ return it} ?: Uri.fromFile(file!!)
+
+        val path : String?
+            get(){
+                file?.let{ return it.canonicalPath}
+                return if( Build.VERSION.SDK_INT >= 30)
+                    null
+                else
+                    documentUri?.let{ pathFromDocumentUri(context, it)}
+            }
+
+        fun openFileDescriptor(): ParcelFileDescriptor? =
+            documentUri?.let{ context.contentResolver.openFileDescriptor(it, "w") }
+                ?: ParcelFileDescriptor.open(file!!, ParcelFileDescriptor.MODE_WRITE_ONLY)
+
+        fun delete(): Boolean =
+            documentUri?.let{ deleteDocument(context, it) }
+                ?: file!!.delete()
+
+
+        fun openOutputStream(): OutputStream =
+            documentUri?.let{ context.contentResolver.openOutputStream(it)}
+                ?: FileOutputStream(file!!)
+
+        override fun toString(): String =
+            documentUri?.toString() ?: file!!.canonicalPath
+    }
+
     private class CaptureEnv(
         val context: Context,
         val timeClick: Long,
@@ -349,16 +400,12 @@ object Capture {
 
             val mimeTypeFile = "video/mp4"
 
-            val documentUri = generateDocument(
-                context,
-                Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                getCurrentTimeString(),
-                mimeTypeFile
-            )
+            val captureFile = CaptureFile(context, mimeTypeFile)
+
             bench("generateDocument")
 
             try {
-                context.contentResolver.openFileDescriptor(documentUri, "w")
+                captureFile.openFileDescriptor()
                     ?.use { parcelFileDescriptor ->
                         try {
                             bench("openFileDescriptor")
@@ -448,6 +495,7 @@ object Capture {
                             videoCodec.start()
                             bench("videoCodec.start")
 
+                            @Suppress("BlockingMethodInNonBlockingContext")
                             muxer = MediaMuxer(
                                 parcelFileDescriptor.fileDescriptor,
                                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
@@ -461,8 +509,8 @@ object Capture {
                                 runOnMainThread {
                                     try {
                                         videoCodec.suspend(!resumed)
-                                    }catch(ex:Throwable){
-                                        log.e(ex,"suspend failed.")
+                                    }catch (ex: Throwable){
+                                        log.e(ex, "suspend failed.")
                                     }
                                 }
                             }
@@ -503,6 +551,9 @@ object Capture {
                             )
 
                             bench("createVirtualDisplay")
+                            if(Build.VERSION.SDK_INT>=30){
+                                setResumed(true)
+                            }
 
                             // TODO : 画面オフとか画面回転とか画面のリサイズとかが発生したらどうなる？
                             var maxDelay = 0L
@@ -540,7 +591,7 @@ object Capture {
                     }
             } catch (ex: Throwable) {
                 try {
-                    if (!deleteDocument(context, documentUri))
+                    if(! captureFile.delete())
                         log.e("deleteDocument returns false.")
                 } catch (ex2: Throwable) {
                     log.e(ex2, "deleteDocument failed.")
@@ -549,13 +600,13 @@ object Capture {
             }
 
             var mediaUri: Uri? = null
-            pathFromDocumentUri(context, documentUri)?.let { path ->
+            captureFile.path?.let { path ->
                 mediaScannerTracker.scanAndWait(path, mimeTypeFile)?.let { mediaUri = it }
             }
             bench("media scan: $mediaUri")
 
             return CaptureResult(
-                documentUri = documentUri,
+                documentUri = captureFile.uri,
                 mimeType = mimeTypeFile,
                 mediaUri = mediaUri
             )
@@ -616,14 +667,10 @@ object Capture {
                         }
                     }
 
-                    val documentUri = generateDocument(
-                        context,
-                        Uri.parse(Pref.spSaveTreeUri(App1.pref)),
-                        getCurrentTimeString(),
-                        mimeType
-                    )
+                    val captureFile = CaptureFile(context,mimeType)
                     try {
-                        context.contentResolver.openOutputStream(documentUri)
+                        captureFile.openOutputStream()
+
                             .use { outputStream ->
                                 bench("before compress")
                                 srcBitmap.compress(
@@ -631,11 +678,11 @@ object Capture {
                                     compressQuality,
                                     outputStream
                                 )
-                                bench("compress and write to $documentUri")
+                                bench("compress and write to $captureFile")
                             }
                     } catch (ex: Throwable) {
                         try {
-                            if (!deleteDocument(context, documentUri))
+                            if (! captureFile.delete())
                                 log.e("deleteDocument returns false.")
                         } catch (ex2: Throwable) {
                             log.e(ex2, "deleteDocument failed.")
@@ -643,16 +690,16 @@ object Capture {
                         throw ex
                     }
 
-                    val path = pathFromDocumentUri(context, documentUri)
-                        ?: error("can't get path for $documentUri")
-
                     var mediaUri: Uri? = null
-                    mediaScannerTracker.scanAndWait(path, mimeType)?.let { mediaUri = it }
+                    captureFile.path?.let{ path->
+                        mediaScannerTracker.scanAndWait(path, mimeType)
+                            ?.let {  mediaUri = it }
+                    }
 
                     bench("media scan: $mediaUri")
 
                     CaptureResult(
-                        documentUri = documentUri,
+                        documentUri = captureFile.uri,
                         mimeType = mimeType,
                         mediaUri = mediaUri
                     )
@@ -664,6 +711,7 @@ object Capture {
             } ?: error("bitmap creation failed.")
         }
 
+        @SuppressLint("WrongConstant")
         suspend fun captureStill(): CaptureResult {
 
             val mediaProjection = mediaProjection
@@ -680,9 +728,9 @@ object Capture {
 
                 var virtualDisplay: VirtualDisplay? = null
 
-                val resumeResult = withTimeoutOrNull(2000L) {
-                    suspendCoroutine<String> { cont ->
-                        virtualDisplay = mediaProjection.createVirtualDisplay(
+                val resumeResult = withTimeoutOrNull(20000L) {
+                    suspendCancellableCoroutine<String> { cont ->
+                        val vd = mediaProjection.createVirtualDisplay(
                             App1.tagPrefix,
                             screenWidth,
                             screenHeight,
@@ -693,7 +741,11 @@ object Capture {
                                 override fun onResumed() {
                                     super.onResumed()
                                     log.d("VirtualDisplay onResumed")
-                                    cont.resume("OK")
+                                    try {
+                                        cont.resume("OK")
+                                    }catch(ex:Throwable){
+                                        log.e(ex,"resume failed.")
+                                    }
                                 }
 
                                 override fun onStopped() {
@@ -708,7 +760,11 @@ object Capture {
                             },
                             handler
                         )
-                        bench("create virtualDisplay")
+                        virtualDisplay = vd
+                        bench("virtualDisplay created. waiting onResumed…")
+                        if(Build.VERSION.SDK_INT>=30){
+                            cont.resume("OK")
+                        }
                     }
                 }
 

@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
 import android.view.View
@@ -209,7 +210,12 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
 
         this.lastUri = uri
 
-        val path = pathFromDocumentUri(this, uri) ?: error("")
+        val path = if(Build.VERSION.SDK_INT >= 30 ) {
+            uri.toString()
+        }else{
+            pathFromDocumentUri(this, uri)
+                ?: error("can't get path from document uri")
+        }
 
         launch {
             try {

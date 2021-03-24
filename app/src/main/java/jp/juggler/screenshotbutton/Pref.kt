@@ -2,6 +2,7 @@ package jp.juggler.screenshotbutton
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.CompoundButton
@@ -220,6 +221,13 @@ object Pref {
         "SaveTreeUri",
         ""
     )
+
+    val spScopedSaveFolder = StringPref(
+        "ScopedSaveFolder",
+        ""
+    )
+
+    val useScopedSaveFolder = false // Build.VERSION.SDK_INT>=30
 
     val spCodec = StringPref(
         "Codec",

@@ -113,21 +113,28 @@ class MediaScannerTracker(
         handler.post(queueReader)
     }
 
-    override fun onScanCompleted(path: String, contentUri: Uri) {
+    override fun onScanCompleted(path: String?, contentUri: Uri?) {
         try {
-            synchronized(scanning) {
+
+            val item = synchronized(scanning) {
                 val now = SystemClock.elapsedRealtime()
                 val it = scanning.iterator()
                 while (it.hasNext()) {
                     val i = it.next()
                     if (i.path == path) {
                         it.remove()
-                        return@synchronized i.onComplete
+                        return@synchronized i
                     }
                     if (now - i.timeCreated >= 3600) it.remove()
                 }
                 null
-            }?.invoke(contentUri)
+            } ?: return
+
+            if(contentUri==null) {
+                log.e("onScanCompleted: contentUri is null!")
+            }else {
+                item.onComplete(contentUri)
+            }
         } catch (ex: Throwable) {
             log.e(ex, "onScanCompleted: callback failed.")
         }

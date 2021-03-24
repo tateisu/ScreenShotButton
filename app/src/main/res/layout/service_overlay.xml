@@ -5,4 +5,5 @@
     android:layout_height="24dp"
     android:importantForAccessibility="no"
     android:scaleType="fitCenter"
+    android:padding="0dp"
     android:tint="@color/colorLauncherIconForeground" />

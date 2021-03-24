@@ -13,6 +13,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import jp.juggler.screenshotbutton.API_STORAGE_VOLUME
 import jp.juggler.screenshotbutton.App1
+import java.io.File
 
 @Suppress("unused")
 private val log = LogCategory("${App1.tagPrefix}/StorageUtils")
@@ -204,6 +205,36 @@ fun pathFromDocumentUri(context: Context, uri: Uri): String? = try {
     null
 }
 
+fun generateFile(
+    context: Context,
+    directory:String,
+    baseName: String,
+    mimeType: String
+): File {
+    val ext = when(mimeType){
+        "video/mp4" -> "mp4"
+            "image/png" -> "png"
+            "image/jpeg" ->"jpg"
+        else->"data"
+    }
+
+    val dir = File(directory)
+    if( ! dir.isDirectory ) error("not directory. $directory")
+    if( ! dir.canWrite() ) error("can't write to directory. $directory")
+
+    var n = 0
+    var file :File
+    do{
+        ++n
+        file = if (n == 1) {
+            File(dir, "$baseName.$ext")
+        } else {
+            File(dir, "$baseName-$n.$ext")
+        }
+    }while(file.exists())
+
+    return file
+}
 
 fun generateDocument(
     context: Context,

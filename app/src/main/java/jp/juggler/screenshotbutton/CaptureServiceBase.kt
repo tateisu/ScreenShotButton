@@ -5,7 +5,6 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -477,6 +476,8 @@ abstract class CaptureServiceBase(
             return
         }
 
+        log.w("captureStart 1")
+
         hideByTouching = false
 
         Capture.isCapturing = true
@@ -484,13 +485,14 @@ abstract class CaptureServiceBase(
         isVideoCaptureJob = isVideo
         captureJob = WeakReference(GlobalScope.launch(Dispatchers.IO) {
             for( nTry in 1..3) {
-                log.d("try $nTry")
+                log.w("captureJob try $nTry")
                 try {
                     val captureResult = Capture.capture(
                         context,
                         timeClick,
                         isVideo = this@CaptureServiceBase is CaptureServiceVideo
                     )
+                    log.w("captureJob captureResult=$captureResult")
                     runOnMainThread {
                         if (Pref.bpShowPostView(App1.pref)) {
                             openPostView(captureResult)
@@ -499,9 +501,8 @@ abstract class CaptureServiceBase(
                     break
                 }catch(ex: Capture.ScreenCaptureIntentError){
 
-                    log.e( ex, "capture failed.")
-
                     try {
+                        log.e( ex, "captureJob failed. open activity…")
                         val state = suspendCoroutine<Capture.MediaProjectionState> { cont ->
                             ActScreenCaptureIntent.cont = cont
                             startActivity(
