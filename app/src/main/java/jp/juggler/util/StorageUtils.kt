@@ -91,18 +91,19 @@ private val reAndroidDataFolder = """/Android/data/.*""".toRegex()
 
 @TargetApi(30)
 private fun getVolumePathApi30(context:Context, uuid: String): String{
-    val list = ContextCompat.getExternalFilesDirs(context, null).map{ it.canonicalPath }
+    // /storage/emulated/0/Android/data/jp.juggler.android11storagetest/files
+    // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
+    val list = ContextCompat.getExternalFilesDirs(context, null).map{ it.canonicalPath.replace(reAndroidDataFolder, "") }
+
+    // /storage/emulated/0
+    // /storage/0222-9FE1
     val path = if( uuid == "primary") {
-        // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
         list.firstOrNull()
     }else {
-        // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
-        list.find {
-            it.contains(uuid, ignoreCase = true)
-        }
+        list.find { it.contains(uuid, ignoreCase = true) }
     }
-    return path?.replace(reAndroidDataFolder, "")
-        ?: error("can't find volume for uuid $uuid")
+
+    return path ?: error("can't find volume for uuid $uuid")
 }
 
 @TargetApi(24)
