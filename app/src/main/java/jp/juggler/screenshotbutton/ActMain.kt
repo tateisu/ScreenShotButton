@@ -13,12 +13,10 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import jp.juggler.screenshotbutton.databinding.ActMainBinding
 import jp.juggler.util.*
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -28,29 +26,38 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     companion object {
         private val log = LogCategory("${App1.tagPrefix}/ActMain")
 
-        private const val REQUEST_CODE_SCREEN_CAPTURE = 1
-        private const val REQUEST_CODE_OVERLAY = 2
-        private const val REQUEST_CODE_DOCUMENT_TREE = 3
-
         private var refActivity: WeakReference<ActMain>? = null
 
         fun getActivity() = refActivity?.get()
-
     }
 
-    private lateinit var btnStartStopStill: Button
-    private lateinit var btnStartStopVideo: Button
-    private lateinit var btnStopRecording: Button
-    private lateinit var tvButtonSizeError: TextView
-    private lateinit var tvSaveFolder: TextView
-    private lateinit var tvCodec: TextView
-    private lateinit var tvStatusStill: TextView
-    private lateinit var tvStatusVideo: TextView
+    private val views by lazy {
+        ActMainBinding.inflate(layoutInflater)
+    }
+
+    private var lastDialog: WeakReference<Dialog>? = null
 
     private var timeStartButtonTappedStill = 0L
     private var timeStartButtonTappedVideo = 0L
 
+    private var videoCaptureEnabled = false
+
+    private val arOverlay = ActivityResultHandler {
+        mayContinueDispatch(handleOverlayResult())
+    }
+
+    private val arScreenCapture = ActivityResultHandler { r ->
+        mayContinueDispatch(Capture.handleScreenCaptureIntentResult(this, r.resultCode, r.data))
+    }
+
+    private val arDocumentTree = ActivityResultHandler { r ->
+        mayContinueDispatch(handleSaveTreeUriResult(r.resultCode, r.data))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        arOverlay.register(this)
+        arScreenCapture.register(this)
+        arDocumentTree.register(this)
         App1.prepareAppState(this)
         log.d("onCreate savedInstanceState=$savedInstanceState")
         refActivity = WeakReference(this)
@@ -65,32 +72,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         showButton()
         showCurrentCodec()
         dispatch()
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        log.d("onActivityResult")
-        super.onActivityResult(requestCode, resultCode, data)
-
-        val continueDispatch = when (requestCode) {
-            REQUEST_CODE_OVERLAY ->
-                handleOverlayResult()
-
-
-            REQUEST_CODE_SCREEN_CAPTURE ->
-                Capture.handleScreenCaptureIntentResult(this, resultCode, data)
-
-            REQUEST_CODE_DOCUMENT_TREE ->
-                handleSaveTreeUriResult(resultCode, data)
-
-            else -> false
-        }
-
-        if (continueDispatch) {
-            dispatch()
-        } else {
-            timeStartButtonTappedStill = 0L
-            timeStartButtonTappedVideo = 0L
-        }
     }
 
     override fun onClick(v: View?) {
@@ -160,15 +141,17 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                     .runOnService(this) {
                         captureStop()
                     }
+
+            R.id.btnExitReasons ->
+                startActivity(Intent(this, ActExitReasons::class.java))
         }
     }
 
     /////////////////////////////////////////
 
-    private var videoCaptureEnabled = false
 
     private fun initUI() {
-        setContentView(R.layout.act_main)
+        setContentView(views.root)
 
         // 設定UIの横幅が一定以上に広がらないようにする
         val dm = resources.displayMetrics
@@ -176,44 +159,35 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         val pageWidth = 360f.dp2px(dm)
         val remain = max(0, screenWidth - pageWidth)
 
-        findViewById<View>(R.id.svRoot)
-            .layoutParams
-            .castOrNull<ViewGroup.MarginLayoutParams>()
+        views.svRoot.layoutParams
+            .cast<ViewGroup.MarginLayoutParams>()
             ?.marginEnd = remain
 
-        btnStartStopStill = findViewById(R.id.btnStartStopStill)
-        btnStartStopVideo = findViewById(R.id.btnStartStopVideo)
-        btnStopRecording = findViewById(R.id.btnStopRecording)
-
         arrayOf(
-            btnStartStopStill,
-            btnStartStopVideo,
-            btnStopRecording,
-            findViewById<View>(R.id.btnSaveFolder),
-            findViewById(R.id.btnResetPositionStill),
-            findViewById(R.id.btnResetPositionVideo),
-            findViewById(R.id.btnCodecEdit)
+            views.btnStartStopStill,
+            views.btnStartStopVideo,
+            views.btnStopRecording,
+            views.btnSaveFolder,
+            views.btnResetPositionStill,
+            views.btnResetPositionVideo,
+            views.btnCodecEdit,
+            views.btnExitReasons,
         ).forEach {
-            it?.setOnClickListener(this)
+            it.setOnClickListener(this)
         }
 
-        tvSaveFolder = findViewById(R.id.tvSaveFolder)
-        tvButtonSizeError = findViewById(R.id.tvButtonSizeError)
-        tvButtonSizeError.vg(false)
-        tvCodec = findViewById(R.id.tvCodec)
-        tvStatusStill = findViewById(R.id.tvStatusStill)
-        tvStatusVideo = findViewById(R.id.tvStatusVideo)
+        views.tvButtonSizeError.vg(false)
 
         val pref = App1.pref
 
-        Pref.bpSavePng.bindSwitch(pref, findViewById(R.id.swSavePng))
-        Pref.bpShowPostView.bindSwitch(pref, findViewById(R.id.swShowPostView))
+        Pref.bpSavePng.bindSwitch(pref, views.swSavePng)
+        Pref.bpShowPostView.bindSwitch(pref, views.swShowPostView)
 
-        Pref.bpLogToFile.bindSwitch(pref, findViewById(R.id.swLogToFile)) {
+        Pref.bpLogToFile.bindSwitch(pref, views.swLogToFile) {
             LogCategory.setLogToFile(this@ActMain, it)
         }
 
-        val etButtonSize: EditText = findViewById(R.id.etButtonSize)
+        val etButtonSize = views.etButtonSize
         etButtonSize.setText(Pref.ipCameraButtonSize(pref).toString())
         etButtonSize.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
@@ -224,14 +198,14 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
             override fun afterTextChanged(ed: Editable?) {
                 val iv = ed?.toString()?.trim()?.toIntOrNull() ?: -1
-                if (null == tvButtonSizeError.vg(iv < 1)) {
+                if (null == views.tvButtonSizeError.vg(iv < 1)) {
                     Pref.ipCameraButtonSize.saveIfModified(pref, iv)
                 }
             }
         })
 
-        Pref.spFrameRate.bindEditText(pref, findViewById(R.id.etFrameRate))
-        Pref.spBitRate.bindEditText(pref, findViewById(R.id.etBitRate))
+        Pref.spFrameRate.bindEditText(pref, views.etFrameRate)
+        Pref.spBitRate.bindEditText(pref, views.etBitRate)
 
         // 動作環境により動画キャプチャができない場合、エラーを表示する
         val message = when {
@@ -248,14 +222,13 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         videoCaptureEnabled = message == null
 
         if (!videoCaptureEnabled) {
-            tvStatusVideo.setTextColor(ContextCompat.getColor(this, R.color.colorTextError))
-            tvStatusVideo.text = message
+            views.tvStatusVideo.setTextColor(ContextCompat.getColor(this, R.color.colorTextError))
+            views.tvStatusVideo.text = message
 
-            btnStopRecording.visibility = View.INVISIBLE
+            views.btnStopRecording.visibility = View.INVISIBLE
         }
 
-        val tvLogToFileDesc: TextView = findViewById(R.id.tvLogToFileDesc)
-        tvLogToFileDesc.text = getString(
+        views.tvLogToFileDesc.text = getString(
             R.string.output_log_to_file_desc,
             LogCategory.getLogDirectory(this).canonicalPath
         )
@@ -263,7 +236,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
 
     private fun showSaveFolder() {
-        tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
+        views.tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)
             .notEmpty()
             ?.let { pathFromDocumentUri(this, Uri.parse(it)) }
             ?: getString(R.string.not_selected)
@@ -281,21 +254,21 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             codec = codecList[0]
             App1.pref.edit().put(Pref.spCodec, codec.id).apply()
         }
-        tvCodec.text = codec.toString()
+        views.tvCodec.text = codec.toString()
     }
 
     // サービスからも呼ばれる
     fun showButton() {
         log.d("showButton")
         if (isDestroyed) return
-        btnStartStopStill.setText(
+        views.btnStartStopStill.setText(
             if (CaptureServiceStill.isAlive()) {
                 R.string.stop
             } else {
                 R.string.start
             }
         )
-        btnStartStopVideo.setText(
+        views.btnStartStopVideo.setText(
             if (CaptureServiceVideo.isAlive()) {
                 R.string.stop
             } else {
@@ -305,13 +278,13 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         val isCapturing = Capture.isCapturing
 
-        btnStartStopStill.isEnabledWithColor = !isCapturing
+        views.btnStartStopStill.isEnabledWithColor = !isCapturing
 
-        btnStartStopVideo.isEnabledWithColor = !isCapturing && videoCaptureEnabled
+        views.btnStartStopVideo.isEnabledWithColor = !isCapturing && videoCaptureEnabled
 
-        btnStopRecording.isEnabledWithColor = CaptureServiceBase.isVideoCapturing()
+        views.btnStopRecording.isEnabledWithColor = CaptureServiceBase.isVideoCapturing()
 
-        tvStatusStill.text = getString(
+        views.tvStatusStill.text = getString(
             R.string.status_is,
             when {
                 CaptureServiceStill.isAlive() ->
@@ -326,7 +299,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         )
 
         if (videoCaptureEnabled) {
-            tvStatusVideo.text = getString(
+            views.tvStatusVideo.text = getString(
                 R.string.status_is,
                 when {
                     CaptureServiceVideo.isAlive() ->
@@ -342,6 +315,16 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
         }
     }
 
+    // ActivityResultの処理結果によってdispatchを再実行する
+    private fun mayContinueDispatch(r: Boolean) {
+        if (r) {
+            dispatch()
+        } else {
+            timeStartButtonTappedStill = 0L
+            timeStartButtonTappedVideo = 0L
+        }
+    }
+
     // 権限のチェックと取得インタラクションの開始
     // 画面表示時や撮影ボタンの表示開始時に呼ばれる
     private fun dispatch() {
@@ -353,7 +336,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         if (timeStartButtonTappedStill > 0L) {
 
-            if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
+            if (!Capture.prepareScreenCaptureIntent(arScreenCapture)) return
 
             timeStartButtonTappedStill = 0L
             ContextCompat.startForegroundService(
@@ -368,7 +351,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         if (timeStartButtonTappedVideo > 0L) {
 
-            if (!Capture.prepareScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)) return
+            if (!Capture.prepareScreenCaptureIntent(arScreenCapture)) return
 
             timeStartButtonTappedVideo = 0L
             ContextCompat.startForegroundService(
@@ -386,7 +369,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     // 保存フォルダの選択と書き込み権限
 
     private fun openSaveTreeUriChooser() {
-        startActivityForResult(
+        arDocumentTree.launch(
             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                 if (Build.VERSION.SDK_INT >= API_EXTRA_INITIAL_URI) {
                     val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
@@ -397,8 +380,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                         )
                     }
                 }
-            },
-            REQUEST_CODE_DOCUMENT_TREE
+            }
         )
     }
 
@@ -461,12 +443,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             .setMessage(R.string.please_allow_overlay_permission)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.ok) { _, _ ->
-                startActivityForResult(
+                arOverlay.launch(
                     Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:$packageName")
-                    ),
-                    REQUEST_CODE_OVERLAY
+                    )
                 )
             }
             .showEx()
@@ -480,7 +461,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     ///////////////////////////////////////////////////
     // ダイアログの多重表示を防止する
 
-    private var lastDialog: WeakReference<Dialog>? = null
 
     private fun AlertDialog.Builder.showEx(): Boolean {
         if (lastDialog?.get()?.isShowing == true) {

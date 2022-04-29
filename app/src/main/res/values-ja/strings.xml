@@ -56,5 +56,6 @@
     <string name="status_running">動作中</string>
     <string name="stopped_by">停止 %1$s</string>
     <string name="stop_recording">録画停止</string>
+    <string name="trouble_shooting">Trouble shooting</string>
 
 </resources>

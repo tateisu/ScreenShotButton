@@ -15,7 +15,7 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
 
     }
 
-    override fun createNotificationChannel(channelId:String) {
+    override fun createNotificationChannel(channelId: String) {
         if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(
@@ -39,7 +39,7 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
             PI_CODE_RUNNING_DELETE_VIDEO,
             Intent(context, MyReceiver::class.java)
                 .apply { action = MyReceiver.ACTION_RUNNING_DELETE_VIDEO },
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         builder
@@ -54,7 +54,7 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
                         .apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         },
-                    PendingIntent.FLAG_UPDATE_CURRENT
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
             .setDeleteIntent(
@@ -70,7 +70,7 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
                             PI_CODE_VIDEO_STOP,
                             Intent(context, MyReceiver::class.java)
                                 .apply { action = MyReceiver.ACTION_RUNNING_VIDEO_STOP },
-                            PendingIntent.FLAG_UPDATE_CURRENT
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                         )
                     )
                 } else {
@@ -82,7 +82,7 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
                             PI_CODE_VIDEO_START,
                             Intent(context, MyReceiver::class.java)
                                 .apply { action = MyReceiver.ACTION_RUNNING_VIDEO_START },
-                            PendingIntent.FLAG_UPDATE_CURRENT
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                         )
                     )
                 }

@@ -114,7 +114,7 @@ data class MediaCodecInfoAndType(
                                 ?: (b.maxSize - a.maxSize).notZero()
                                 ?: (b.maxFrameRate - a.maxFrameRate).notZero()
                                 ?: (b.maxBitRate - a.maxBitRate).notZero()
-                                ?: a.type.compareTo(b.type)
+                                ?: a.type.compareTo(b.type).notZero()
                                 ?: a.info.name.compareTo(b.info.name)
                         }
                     })

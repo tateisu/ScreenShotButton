@@ -4,59 +4,47 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Window
 import androidx.appcompat.app.AppCompatActivity
-import jp.juggler.util.LogCategory
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 
-class ActScreenCaptureIntent :AppCompatActivity(){
+class ActScreenCaptureIntent : AppCompatActivity() {
 
-    companion object{
-        private val log = LogCategory("ActScreenCaptureIntent")
-        private const val REQUEST_CODE_SCREEN_CAPTURE = 1
-
-        var cont : Continuation<Capture.MediaProjectionState>? = null
-            set(value){
+    companion object {
+        var cont: Continuation<Capture.MediaProjectionState>? = null
+            set(value) {
                 try {
                     field?.resumeWithException(RuntimeException("overwrite by new creation"))
-                }catch(_:Throwable){
+                } catch (_: Throwable) {
                 }
                 field = value
             }
     }
 
+    private val arScreenCapture = ActivityResultHandler { r ->
+        Capture.handleScreenCaptureIntentResult(this, r.resultCode, r.data)
+        try {
+            cont?.resume(Capture.mediaProjectionState)
+        } catch (ignored: Throwable) {
+        }
+        finish()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-        Capture.startScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)
+        arScreenCapture.register(this)
+        Capture.startScreenCaptureIntent(arScreenCapture)
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        Capture.startScreenCaptureIntent(this, REQUEST_CODE_SCREEN_CAPTURE)
+        Capture.startScreenCaptureIntent(arScreenCapture)
     }
 
     override fun onPause() {
         super.onPause()
         overridePendingTransition(0, 0)
     }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        log.d("onActivityResult")
-        super.onActivityResult(requestCode, resultCode, data)
-
-        when (requestCode) {
-            REQUEST_CODE_SCREEN_CAPTURE ->{
-                Capture.handleScreenCaptureIntentResult(this, resultCode, data)
-                try {
-                    cont?.resume(Capture.mediaProjectionState)
-                }catch(_:Throwable){
-
-                }
-                finish()
-            }
-        }
-    }
-
 }

@@ -3,9 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="jp.juggler.screenshotbutton">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <application
         android:name=".App1"
@@ -18,6 +20,7 @@
 
         <activity
             android:name=".ActMain"
+            android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/AppTheme"
             android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
@@ -30,28 +33,36 @@
 
         <activity
             android:name=".ActViewer"
+            android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="jp.juggler.screenshotbutton.viewer"
             android:theme="@style/AppTheme.Viewer" />
 
         <activity
             android:name=".ActScreenCaptureIntent"
+            android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="jp.juggler.screenshotbutton.asci"
             android:theme="@style/AppTheme.Transparent" />
 
+        <activity
+            android:name=".ActExitReasons"
+            android:exported="false"
+            android:theme="@style/AppTheme"
+            />
+
         <service
             android:name=".CaptureServiceStill"
             android:exported="false"
-            android:stopWithTask="false"
             android:foregroundServiceType="mediaProjection"
+            android:stopWithTask="false"
             tools:targetApi="q" />
 
         <service
             android:name=".CaptureServiceVideo"
             android:exported="false"
-            android:stopWithTask="false"
             android:foregroundServiceType="mediaProjection"
+            android:stopWithTask="false"
             tools:targetApi="q" />
 
         <receiver android:name=".MyReceiver" />

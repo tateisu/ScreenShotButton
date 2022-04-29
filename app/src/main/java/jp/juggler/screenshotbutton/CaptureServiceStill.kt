@@ -10,12 +10,12 @@ import androidx.core.app.NotificationCompat
 class CaptureServiceStill : CaptureServiceBase(isVideo = false) {
     companion object {
 
-        fun getService() = getServices().find{ it is CaptureServiceStill}
+        fun getService() = getServices().find { it is CaptureServiceStill }
 
         fun isAlive() = getService() != null
     }
 
-    override fun createNotificationChannel(channelId:String) {
+    override fun createNotificationChannel(channelId: String) {
         if (Build.VERSION.SDK_INT >= API_NOTIFICATION_CHANNEL) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(
@@ -39,7 +39,7 @@ class CaptureServiceStill : CaptureServiceBase(isVideo = false) {
             PI_CODE_RUNNING_DELETE_STILL,
             Intent(context, MyReceiver::class.java)
                 .apply { action = MyReceiver.ACTION_RUNNING_DELETE_STILL },
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         builder
@@ -54,7 +54,7 @@ class CaptureServiceStill : CaptureServiceBase(isVideo = false) {
                         .apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         },
-                    PendingIntent.FLAG_UPDATE_CURRENT
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
             .setDeleteIntent(
@@ -72,8 +72,8 @@ class CaptureServiceStill : CaptureServiceBase(isVideo = false) {
         return intArrayOf(0)
     }
 
-    override fun openPostView(captureResult: Capture.CaptureResult){
-        if (!isDestroyed ) {
+    override fun openPostView(captureResult: Capture.CaptureResult) {
+        if (!isDestroyed) {
             ActViewer.open(context, captureResult.documentUri)
         }
     }

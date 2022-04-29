@@ -72,10 +72,7 @@ fun createResizedBitmap(src: Bitmap, dstWidth: Int, dstHeight: Int): Bitmap {
 }
 
 // 型推論できる文脈だと型名を書かずにすむ
-@Suppress("unused")
-inline fun <reified T : Any> Any?.cast(): T = this as T
-
-inline fun <reified T : Any> Any?.castOrNull(): T? = this as? T
+inline fun <reified T : Any> Any?.cast(): T? = this as? T
 
 // 型推論できる文脈だと型名を書かずにすむ
 inline fun <reified T> systemService(context: Context): T? =
@@ -151,8 +148,8 @@ fun runOnMainThread(block: () -> Unit) {
 fun getScreenSize(context: Context) = Point().also {
 
     //    systemService<WindowManager>(context)!!
-//        .defaultDisplay!!
-//        .getRealSize(it)
+    //        .defaultDisplay!!
+    //        .getRealSize(it)
 
     // https://github.com/google/grafika/blob/master/app/src/main/java/com/android/grafika/ScreenRecordActivity.java
     // grafika のサンプルでは DisplayManager.getDisplay を使っていた
@@ -197,3 +194,6 @@ fun getCurrentTimeString(): String {
         , cal.get(Calendar.SECOND)
     )
 }
+
+fun Throwable.withCaption(caption:String="error.")=
+    "$caption ${javaClass.simpleName} : $message"

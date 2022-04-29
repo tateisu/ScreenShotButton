@@ -20,6 +20,7 @@ import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
 import kotlin.math.max
 
+@DelicateCoroutinesApi
 abstract class CaptureServiceBase(
     val isVideo: Boolean
 ) : Service(), View.OnClickListener, View.OnTouchListener {
@@ -160,7 +161,7 @@ abstract class CaptureServiceBase(
                         )
                         if (old != null) putExtra(EXTRA_SCREEN_CAPTURE_INTENT, old)
                     },
-                PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
             if (Build.VERSION.SDK_INT >= 23) {
@@ -270,7 +271,7 @@ abstract class CaptureServiceBase(
 
         reloadPosition()
 
-        if (!isCapturing() && Capture.canCapture() ) {
+        if (!isCapturing() && Capture.canCapture()) {
             try {
                 Capture.updateMediaProjection("service.onConfigurationChanged")
             } catch (ex: Throwable) {
@@ -484,7 +485,7 @@ abstract class CaptureServiceBase(
         showButtonAll()
         isVideoCaptureJob = isVideo
         captureJob = WeakReference(GlobalScope.launch(Dispatchers.IO) {
-            for( nTry in 1..3) {
+            for (nTry in 1..3) {
                 log.w("captureJob try $nTry")
                 try {
                     val captureResult = Capture.capture(
@@ -499,29 +500,29 @@ abstract class CaptureServiceBase(
                         }
                     }
                     break
-                }catch(ex: Capture.ScreenCaptureIntentError){
+                } catch (ex: Capture.ScreenCaptureIntentError) {
 
                     try {
-                        log.e( ex, "captureJob failed. open activity…")
+                        log.e(ex, "captureJob failed. open activity…")
                         val state = suspendCoroutine<Capture.MediaProjectionState> { cont ->
                             ActScreenCaptureIntent.cont = cont
                             startActivity(
                                 Intent(
                                     this@CaptureServiceBase,
                                     ActScreenCaptureIntent::class.java
-                                ).apply{
+                                ).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                                 }
                             )
                         }
-                        if(state !=  Capture.MediaProjectionState.HasScreenCaptureIntent){
+                        if (state != Capture.MediaProjectionState.HasScreenCaptureIntent) {
                             log.d("resumed state is $state")
                             break
                         }
                         Capture.updateMediaProjection("recovery")
                         delay(500L)
                         continue
-                    }catch(ex:Throwable){
+                    } catch (ex: Throwable) {
                         log.eToast(context, ex, "recovery failed.")
                         break
                     }
@@ -555,7 +556,7 @@ fun <T : CaptureServiceBase, R : Any?> T?.runOnService(
 ): R? = when (this) {
     null -> {
         CaptureServiceBase.logCompanion.eToast(context, false, "service not running.")
-        if(notificationId!=null) {
+        if (notificationId != null) {
             systemService<NotificationManager>(context)?.cancel(notificationId)
         }
         null

@@ -310,5 +310,19 @@
             android:textColor="@color/colorText"
             android:textSize="12sp" />
 
+        <View style="@style/setting_border" />
+
+        <TextView
+            style="@style/setting_caption"
+            android:text="@string/trouble_shooting" />
+
+        <Button
+            android:id="@+id/btnExitReasons"
+            style="@style/setting_item"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="@string/exit_reasons"
+            tools:ignore="ButtonStyle" />
+
     </LinearLayout>
 </ScrollView>

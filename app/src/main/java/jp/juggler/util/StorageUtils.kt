@@ -90,16 +90,17 @@ private fun getDocumentId(documentUri: Uri): String {
 private val reAndroidDataFolder = """/Android/data/.*""".toRegex()
 
 @TargetApi(30)
-private fun getVolumePathApi30(context:Context, uuid: String): String{
+private fun getVolumePathApi30(context: Context, uuid: String): String {
     // /storage/emulated/0/Android/data/jp.juggler.android11storagetest/files
     // /storage/0222-9FE1/Android/data/jp.juggler.android11storagetest/files
-    val list = ContextCompat.getExternalFilesDirs(context, null).map{ it.canonicalPath.replace(reAndroidDataFolder, "") }
+    val list = ContextCompat.getExternalFilesDirs(context, null)
+        .map { it.canonicalPath.replace(reAndroidDataFolder, "") }
 
     // /storage/emulated/0
     // /storage/0222-9FE1
-    val path = if( uuid == "primary") {
+    val path = if (uuid == "primary") {
         list.firstOrNull()
-    }else {
+    } else {
         list.find { it.contains(uuid, ignoreCase = true) }
     }
 
@@ -114,7 +115,7 @@ private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): St
     }?.let {
         // API 29 だとグレーリストに入っていた
         // Accessing hidden method Landroid/os/storage/StorageVolume;->getPath()Ljava/lang/String; (greylist, reflection, allowed)
-        StorageVolume::class.java.getMethod("getPath").invoke(it).castOrNull<String>()
+        StorageVolume::class.java.getMethod("getPath").invoke(it).cast()
     } ?: error("can't find volume for uuid $uuid")
 
 @TargetApi(21)
@@ -130,7 +131,7 @@ private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): St
 
             val volumes = storageManager.javaClass.getMethod("getVolumeList")
                 .invoke(storageManager)
-                .castOrNull<Array<*>>()
+                .cast<Array<*>>()
                 ?: error("storageManager.getVolumeList() failed.")
 
             if (volumes.isEmpty())
@@ -148,14 +149,14 @@ private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): St
 
             val state = volumeClass.getMethod("getState")
                 .invoke(volume)
-                .castOrNull<String>()
+                .cast<String>()
 
             if (state != "mounted")
                 error("uuid is not mounted. $state")
 
             volumeClass.getMethod("getPath")
                 .invoke(volume)
-                .castOrNull<String>()
+                .cast<String>()
                 .notEmpty()
                 ?: error("volume.getPath() failed.")
         }
@@ -186,12 +187,15 @@ fun pathFromDocumentUriOrThrow(context: Context, uri: Uri) = when {
 
         val storageManager = systemService<StorageManager>(context)!!
 
-        val volumePath = if( Build.VERSION.SDK_INT >= 30 ){
-            getVolumePathApi30(context, split[0])
-        }else if (Build.VERSION.SDK_INT >= API_STORAGE_VOLUME) {
-            getVolumePathApi24(storageManager, split[0])
-        } else {
-            getVolumePathApi21(storageManager, split[0])
+        val volumePath = when {
+            Build.VERSION.SDK_INT >= 30 ->
+                getVolumePathApi30(context, split[0])
+
+            Build.VERSION.SDK_INT >= API_STORAGE_VOLUME ->
+                getVolumePathApi24(storageManager, split[0])
+
+            else ->
+                getVolumePathApi21(storageManager, split[0])
         }
 
         "$volumePath/${split[1]}"

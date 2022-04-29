@@ -81,14 +81,13 @@ object Capture {
         return false
     }
 
-    fun startScreenCaptureIntent(activity: Activity, requestCode: Int) {
+    fun startScreenCaptureIntent(launcher:ActivityResultHandler)  {
         log.d("createScreenCaptureIntent")
-        val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
-        activity.startActivityForResult(permissionIntent, requestCode)
+        launcher.launch( mediaProjectionManager.createScreenCaptureIntent())
         mediaProjectionState = MediaProjectionState.RequestingScreenCaptureIntent
     }
 
-    fun prepareScreenCaptureIntent(activity: Activity, requestCode: Int): Boolean {
+    fun prepareScreenCaptureIntent(launcher:ActivityResultHandler): Boolean {
         log.d("prepareScreenCaptureIntent")
         return when (mediaProjectionState) {
             MediaProjectionState.HasMediaProjection,
@@ -97,7 +96,7 @@ object Capture {
             MediaProjectionState.RequestingScreenCaptureIntent -> false
 
             MediaProjectionState.Off -> {
-                startScreenCaptureIntent(activity, requestCode)
+                startScreenCaptureIntent(launcher)
                 false
             }
         }

@@ -57,5 +57,7 @@
     <string name="status_running">Running</string>
     <string name="stopped_by">Stopped by: %1$s</string>
     <string name="stop_recording">Stop recording</string>
+    <string name="trouble_shooting">Trouble shooting</string>
+    <string name="exit_reasons">Exit Reasong</string>
 
 </resources>
