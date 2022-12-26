@@ -217,6 +217,16 @@ object Pref {
         false
     )
 
+    val bpStartBootStill = BooleanPref(
+        "StartBootStill",
+        false
+    )
+
+    val bpStartBootVideo = BooleanPref(
+        "StartBootVideo",
+        false
+    )
+
     val spSaveTreeUri = StringPref(
         "SaveTreeUri",
         ""

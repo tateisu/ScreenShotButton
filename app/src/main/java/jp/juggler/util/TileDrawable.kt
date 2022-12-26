@@ -39,7 +39,8 @@ class TileDrawable(private val stepSize: Int, private val colorA: Int, private v
     }
 
     // deprecated in API29. This method is no longer used in graphics optimizations
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION", "DeprecatedCallableAddReplaceWith")
+    @Deprecated("Deprecated in Java")
     override fun getOpacity() = PixelFormat.TRANSLUCENT
 
     override fun setAlpha(alpha: Int) {

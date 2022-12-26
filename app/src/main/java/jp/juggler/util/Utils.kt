@@ -16,6 +16,8 @@ import android.util.DisplayMetrics
 import android.view.Display
 import android.view.View
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.getSystemService
 import jp.juggler.screenshotbutton.API_APPLICATION_OVERLAY
 import java.util.*
@@ -185,15 +187,21 @@ var View.isEnabledWithColor: Boolean
 fun getCurrentTimeString(): String {
     val cal = Calendar.getInstance()
     return String.format(
-        "%d%02d%02d-%02d%02d%02d"
-        , cal.get(Calendar.YEAR)
-        , cal.get(Calendar.MONTH) + 1
-        , cal.get(Calendar.DAY_OF_MONTH)
-        , cal.get(Calendar.HOUR_OF_DAY)
-        , cal.get(Calendar.MINUTE)
-        , cal.get(Calendar.SECOND)
+        "%d%02d%02d-%02d%02d%02d",
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH) + 1,
+        cal.get(Calendar.DAY_OF_MONTH),
+        cal.get(Calendar.HOUR_OF_DAY),
+        cal.get(Calendar.MINUTE),
+        cal.get(Calendar.SECOND)
     )
 }
 
-fun Throwable.withCaption(caption:String="error.")=
+fun Throwable.withCaption(caption: String = "error.") =
     "$caption ${javaClass.simpleName} : $message"
+
+fun AppCompatActivity.addBackPressed(block: () -> Unit) {
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() = block()
+    })
+}

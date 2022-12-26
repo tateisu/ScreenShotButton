@@ -20,7 +20,6 @@ import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
 import kotlin.math.max
 
-@DelicateCoroutinesApi
 abstract class CaptureServiceBase(
     val isVideo: Boolean
 ) : Service(), View.OnClickListener, View.OnTouchListener {
@@ -135,9 +134,10 @@ abstract class CaptureServiceBase(
 
     override fun onBind(intent: Intent): IBinder? = null
 
-    override fun onStart(intent: Intent?, startId: Int) {
-        handleIntent(intent)
-    }
+//    @Deprecated("Deprecated in API level 15")
+//    override fun onStart(intent: Intent?, startId: Int) {
+//        handleIntent(intent)
+//    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         handleIntent(intent)

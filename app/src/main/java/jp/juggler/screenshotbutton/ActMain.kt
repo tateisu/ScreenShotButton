@@ -149,7 +149,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     /////////////////////////////////////////
 
-
     private fun initUI() {
         setContentView(views.root)
 
@@ -232,8 +231,20 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             R.string.output_log_to_file_desc,
             LogCategory.getLogDirectory(this).canonicalPath
         )
-    }
 
+        views.swStartBootStill.isChecked = Pref.bpStartBootStill(pref)
+        views.swStartBootVideo.isChecked = Pref.bpStartBootVideo(pref)
+        views.swStartBootStill.setOnCheckedChangeListener { _, isChecked ->
+            App1.pref.edit()
+                .put(Pref.bpStartBootStill, isChecked)
+                .apply()
+        }
+        views.swStartBootVideo.setOnCheckedChangeListener { _, isChecked ->
+            App1.pref.edit()
+                .put(Pref.bpStartBootVideo, isChecked)
+                .apply()
+        }
+    }
 
     private fun showSaveFolder() {
         views.tvSaveFolder.text = Pref.spSaveTreeUri(App1.pref)

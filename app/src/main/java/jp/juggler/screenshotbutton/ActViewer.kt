@@ -13,6 +13,7 @@ import android.view.View
 import android.view.Window
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import jp.juggler.util.*
@@ -121,6 +122,11 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     private var lastUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        addBackPressed{
+            log.d("backPressed")
+            finish()
+        }
+
         activityJob = Job()
         super.onCreate(savedInstanceState)
         App1.prepareAppState(this)
@@ -158,13 +164,6 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     private fun Bundle.saveState() {
         lastUri?.let { putString(EXTRA_URI, it.toString()) }
     }
-
-    override fun onBackPressed() {
-        log.d("onBackPressed")
-        super.onBackPressed()
-        // finish()
-    }
-
 
     override fun onClick(v: View?) {
         when (v?.id) {

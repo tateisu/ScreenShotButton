@@ -81,13 +81,13 @@ object Capture {
         return false
     }
 
-    fun startScreenCaptureIntent(launcher:ActivityResultHandler)  {
+    fun startScreenCaptureIntent(launcher: ActivityResultHandler) {
         log.d("createScreenCaptureIntent")
-        launcher.launch( mediaProjectionManager.createScreenCaptureIntent())
+        launcher.launch(mediaProjectionManager.createScreenCaptureIntent())
         mediaProjectionState = MediaProjectionState.RequestingScreenCaptureIntent
     }
 
-    fun prepareScreenCaptureIntent(launcher:ActivityResultHandler): Boolean {
+    fun prepareScreenCaptureIntent(launcher: ActivityResultHandler): Boolean {
         log.d("prepareScreenCaptureIntent")
         return when (mediaProjectionState) {
             MediaProjectionState.HasMediaProjection,
@@ -132,7 +132,7 @@ object Capture {
     fun canCapture() =
         mediaProjection != null && mediaProjectionAddr.get() != null
 
-    class ScreenCaptureIntentError(msg: String) :IllegalStateException(msg)
+    class ScreenCaptureIntentError(msg: String) : IllegalStateException(msg)
 
     // throw error if failed.
     fun updateMediaProjection(caller: String) {
@@ -196,7 +196,6 @@ object Capture {
         }
         return true
     }
-
 
 
     ////////////////////////////////////////////////////////////
@@ -276,15 +275,15 @@ object Capture {
         val mediaUri: Uri?
     )
 
-    private class CaptureFile(val context: Context, mimeType: String){
+    private class CaptureFile(val context: Context, mimeType: String) {
 
-        private val documentUri :Uri?
+        private val documentUri: Uri?
 
         // 盲腸
-        private val file:File?
+        private val file: File?
 
-        init{
-            file=null
+        init {
+            file = null
             documentUri = generateDocument(
                 context,
                 Uri.parse(Pref.spSaveTreeUri(App1.pref)),
@@ -294,25 +293,25 @@ object Capture {
         }
 
         val uri: Uri
-            get() = documentUri?.let{ return it} ?: Uri.fromFile(file!!)
+            get() = documentUri?.let { return it } ?: Uri.fromFile(file!!)
 
-        val path : String?
-            get(){
-                file?.let{ return it.canonicalPath}
-                return documentUri?.let{ pathFromDocumentUri(context, it)}
+        val path: String?
+            get() {
+                file?.let { return it.canonicalPath }
+                return documentUri?.let { pathFromDocumentUri(context, it) }
             }
 
         fun openFileDescriptor(): ParcelFileDescriptor? =
-            documentUri?.let{ context.contentResolver.openFileDescriptor(it, "w") }
+            documentUri?.let { context.contentResolver.openFileDescriptor(it, "w") }
                 ?: ParcelFileDescriptor.open(file!!, ParcelFileDescriptor.MODE_WRITE_ONLY)
 
         fun delete(): Boolean =
-            documentUri?.let{ deleteDocument(context, it) }
+            documentUri?.let { deleteDocument(context, it) }
                 ?: file!!.delete()
 
 
         fun openOutputStream(): OutputStream =
-            documentUri?.let{ context.contentResolver.openOutputStream(it)}
+            documentUri?.let { context.contentResolver.openOutputStream(it) }
                 ?: FileOutputStream(file!!)
 
         override fun toString(): String =
@@ -497,7 +496,7 @@ object Capture {
                                 runOnMainThread {
                                     try {
                                         videoCodec.suspend(!resumed)
-                                    }catch (ex: Throwable){
+                                    } catch (ex: Throwable) {
                                         log.e(ex, "suspend failed.")
                                     }
                                 }
@@ -539,7 +538,7 @@ object Capture {
                             )
 
                             bench("createVirtualDisplay")
-                            if(Build.VERSION.SDK_INT>=30){
+                            if (Build.VERSION.SDK_INT >= 30) {
                                 setResumed(true)
                             }
 
@@ -579,7 +578,7 @@ object Capture {
                     }
             } catch (ex: Throwable) {
                 try {
-                    if(! captureFile.delete())
+                    if (!captureFile.delete())
                         log.e("deleteDocument returns false.")
                 } catch (ex2: Throwable) {
                     log.e(ex2, "deleteDocument failed.")
@@ -655,7 +654,7 @@ object Capture {
                         }
                     }
 
-                    val captureFile = CaptureFile(context,mimeType)
+                    val captureFile = CaptureFile(context, mimeType)
                     try {
                         captureFile.openOutputStream()
 
@@ -670,7 +669,7 @@ object Capture {
                             }
                     } catch (ex: Throwable) {
                         try {
-                            if (! captureFile.delete())
+                            if (!captureFile.delete())
                                 log.e("deleteDocument returns false.")
                         } catch (ex2: Throwable) {
                             log.e(ex2, "deleteDocument failed.")
@@ -679,9 +678,9 @@ object Capture {
                     }
 
                     var mediaUri: Uri? = null
-                    captureFile.path?.let{ path->
+                    captureFile.path?.let { path ->
                         mediaScannerTracker.scanAndWait(path, mimeType)
-                            ?.let {  mediaUri = it }
+                            ?.let { mediaUri = it }
                     }
 
                     bench("media scan: $mediaUri")
@@ -717,7 +716,7 @@ object Capture {
                 var virtualDisplay: VirtualDisplay? = null
 
                 val resumeResult = withTimeoutOrNull(20000L) {
-                    suspendCancellableCoroutine<String> { cont ->
+                    suspendCancellableCoroutine { cont ->
                         val vd = mediaProjection.createVirtualDisplay(
                             App1.tagPrefix,
                             screenWidth,
@@ -730,9 +729,9 @@ object Capture {
                                     super.onResumed()
                                     log.d("VirtualDisplay onResumed")
                                     try {
-                                        cont.resume("OK")
-                                    }catch(ex:Throwable){
-                                        log.e(ex,"resume failed.")
+                                        if (cont.isActive) cont.resume("OK")
+                                    } catch (ex: Throwable) {
+                                        log.e(ex, "resume failed.")
                                     }
                                 }
 
@@ -750,8 +749,8 @@ object Capture {
                         )
                         virtualDisplay = vd
                         bench("virtualDisplay created. waiting onResumed…")
-                        if(Build.VERSION.SDK_INT>=30){
-                            cont.resume("OK")
+                        if (Build.VERSION.SDK_INT >= 30) {
+                            if (cont.isActive) cont.resume("OK")
                         }
                     }
                 }
