@@ -26,7 +26,7 @@ android {
     }
 
     kotlinOptions {
-        freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
+        freeCompilerArgs += "-opt-in=kotlin.Experimental"
     }
 
     viewBinding {

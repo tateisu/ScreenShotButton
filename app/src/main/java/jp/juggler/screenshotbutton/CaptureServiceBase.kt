@@ -156,7 +156,7 @@ abstract class CaptureServiceBase(
                 pendingIntentRequestCodeRestart,
                 Intent(this, this.javaClass)
                     .apply {
-                        val old = rootIntent?.getParcelableExtra<Intent>(
+                        val old = rootIntent?.getParcelableExtraCompat<Intent>(
                             EXTRA_SCREEN_CAPTURE_INTENT
                         )
                         if (old != null) putExtra(EXTRA_SCREEN_CAPTURE_INTENT, old)
@@ -295,7 +295,7 @@ abstract class CaptureServiceBase(
     //////////////////////////////////////////////
 
     private fun handleIntent(intent: Intent?) {
-        val screenCaptureIntent = intent?.getParcelableExtra<Intent>(EXTRA_SCREEN_CAPTURE_INTENT)
+        val screenCaptureIntent = intent?.getParcelableExtraCompat<Intent>(EXTRA_SCREEN_CAPTURE_INTENT)
         if (screenCaptureIntent != null && Capture.screenCaptureIntent == null) {
             Capture.handleScreenCaptureIntentResult(this, Activity.RESULT_OK, screenCaptureIntent)
         }
@@ -484,7 +484,7 @@ abstract class CaptureServiceBase(
         Capture.isCapturing = true
         showButtonAll()
         isVideoCaptureJob = isVideo
-        captureJob = WeakReference(GlobalScope.launch(Dispatchers.IO) {
+        captureJob = WeakReference(EmptyScope.launch(Dispatchers.IO) {
             for (nTry in 1..3) {
                 log.w("captureJob try $nTry")
                 try {
