@@ -1,19 +1,40 @@
 package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
-import android.app.*
+import android.app.Activity
+import android.app.AlarmManager
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
-import android.view.*
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
 import androidx.annotation.DrawableRes
+import androidx.core.app.AlarmManagerCompat
 import androidx.core.app.NotificationCompat
-import jp.juggler.util.*
-import kotlinx.coroutines.*
+import androidx.core.app.ServiceCompat
+import jp.juggler.screenshotbutton.databinding.ServiceOverlayBinding
+import jp.juggler.util.LogCategory
+import jp.juggler.util.clip
+import jp.juggler.util.dp2px
+import jp.juggler.util.px2dp
+import jp.juggler.util.runOnMainThread
+import jp.juggler.util.systemService
+import jp.juggler.util.vg
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.lang.ref.WeakReference
 import java.util.*
 import kotlin.coroutines.suspendCoroutine
@@ -112,12 +133,16 @@ abstract class CaptureServiceBase(
     protected val context: Context
         get() = this
 
-    protected lateinit var notificationManager: NotificationManager
-    private lateinit var windowManager: WindowManager
+    protected val notificationManager: NotificationManager by lazy {
+        systemService() ?: error("missing NotificationManager")
+    }
+    private val windowManager: WindowManager by lazy {
+        systemService() ?: error("missing WindowManager")
+    }
 
-    private lateinit var btnCamera: MyImageButton
+    private var views: ServiceOverlayBinding? = null
+
     private lateinit var layoutParam: WindowManager.LayoutParams
-    private lateinit var viewRoot: View
 
     private var startLpX = 0
     private var startLpY = 0
@@ -150,7 +175,7 @@ abstract class CaptureServiceBase(
         setStopReason(this, "onTaskRemoved")
 
         // restart service
-        systemService<AlarmManager>(this)?.let { manager ->
+        systemService<AlarmManager>()?.let { manager ->
             val pendingIntent = PendingIntent.getService(
                 this,
                 pendingIntentRequestCodeRestart,
@@ -164,21 +189,12 @@ abstract class CaptureServiceBase(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            if (Build.VERSION.SDK_INT >= 23) {
-                manager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC,
-                    System.currentTimeMillis() + 500,
-                    pendingIntent
-                )
-
-            } else {
-                manager.setExact(
-                    AlarmManager.RTC,
-                    System.currentTimeMillis() + 500,
-                    pendingIntent
-                )
-            }
-
+            AlarmManagerCompat.setExactAndAllowWhileIdle(
+                manager,
+                AlarmManager.RTC,
+                System.currentTimeMillis() + 500,
+                pendingIntent
+            )
         }
 
         super.onTaskRemoved(rootIntent)
@@ -203,28 +219,18 @@ abstract class CaptureServiceBase(
 
         super.onCreate()
 
-        notificationManager = systemService(context)!!
-        windowManager = systemService(context)!!
-
-        @SuppressLint("InflateParams")
-        viewRoot = LayoutInflater.from(context).inflate(R.layout.service_overlay, null)
+        val views = ServiceOverlayBinding.inflate(LayoutInflater.from(context))
+            .also { this.views = it }
 
         startForeground(notificationId, createRunningNotification(false))
 
-        btnCamera = viewRoot.findViewById(R.id.btnCamera)
-        btnCamera.setOnClickListener(this)
-        btnCamera.setOnTouchListener(this)
+        views.btnCamera.setOnClickListener(this)
+        views.btnCamera.setOnTouchListener(this)
 
         layoutParam = WindowManager.LayoutParams(
             0, // 後で上書きする。 loadButtonPosition()
             0,
-            if (Build.VERSION.SDK_INT >= API_APPLICATION_OVERLAY) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
-                // TYPE_SYSTEM_OVERLAYはロック画面にもViewを表示できますが、タッチイベントを取得できません
-            },
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     // WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -236,8 +242,8 @@ abstract class CaptureServiceBase(
 
         loadButtonPosition()
 
-        btnCamera.windowLayoutParams = layoutParam
-        windowManager.addView(viewRoot, layoutParam)
+        views.btnCamera.windowLayoutParams = layoutParam
+        windowManager.addView(views.root, layoutParam)
 
         showButtonAll()
     }
@@ -246,8 +252,10 @@ abstract class CaptureServiceBase(
         log.i("onDestroy start. stopReason=${getStopReason(this.javaClass)}")
         removeActiveService(this)
         isDestroyed = true
-        windowManager.removeView(viewRoot)
-        stopForeground(true)
+        views?.root?.let { windowManager.removeView(it) }
+
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        stopForeground(STOP_FOREGROUND_REMOVE)
 
         if (this is CaptureServiceVideo) Capture.stopVideo()
 
@@ -295,7 +303,8 @@ abstract class CaptureServiceBase(
     //////////////////////////////////////////////
 
     private fun handleIntent(intent: Intent?) {
-        val screenCaptureIntent = intent?.getParcelableExtraCompat<Intent>(EXTRA_SCREEN_CAPTURE_INTENT)
+        val screenCaptureIntent =
+            intent?.getParcelableExtraCompat<Intent>(EXTRA_SCREEN_CAPTURE_INTENT)
         if (screenCaptureIntent != null && Capture.screenCaptureIntent == null) {
             Capture.handleScreenCaptureIntentResult(this, Activity.RESULT_OK, screenCaptureIntent)
         }
@@ -311,24 +320,18 @@ abstract class CaptureServiceBase(
         layoutParam.width = buttonSize
         layoutParam.height = buttonSize
 
-        layoutParam.x = clipInt(
-            0,
-            dm.widthPixels - buttonSize,
-            fpCameraButtonX(App1.pref).dp2px(dm)
-        )
+        layoutParam.x = fpCameraButtonX(App1.pref).dp2px(dm)
+            .clip(0, dm.widthPixels - buttonSize)
 
-        layoutParam.y = clipInt(
-            0,
-            dm.heightPixels - buttonSize,
-            fpCameraButtonY(App1.pref).dp2px(dm)
-        )
+        layoutParam.y = fpCameraButtonY(App1.pref).dp2px(dm)
+            .clip(0, dm.heightPixels - buttonSize)
     }
 
     // UIから呼ばれる
     fun reloadPosition() {
         loadButtonPosition()
-        windowManager.updateViewLayout(viewRoot, layoutParam)
-        btnCamera.updateExclusion()
+        views?.root.let { windowManager.updateViewLayout(it, layoutParam) }
+        views?.btnCamera?.updateExclusion()
     }
 
     //////////////////////////////////////////////
@@ -336,6 +339,7 @@ abstract class CaptureServiceBase(
 
     private var hideByTouching = false
 
+    @Suppress("NotificationPermission")
     fun showButton() {
         if (isDestroyed) return
 
@@ -345,17 +349,17 @@ abstract class CaptureServiceBase(
         notificationManager.notify(notificationId, createRunningNotification(isCapturing))
 
         // キャプチャ中はボタンを隠す(操作できない)
-        btnCamera.vg(!isCapturing)
+        views?.btnCamera?.vg(!isCapturing)
 
         val hideByTouching = getServices().find { it.hideByTouching } != null
 
         // タッチ中かつ非ドラッグ状態ならボタンを隠す(操作はできる)
         if (hideByTouching) {
-            btnCamera.background = null
-            btnCamera.setImageDrawable(null)
+            views?.btnCamera?.background = null
+            views?.btnCamera?.setImageDrawable(null)
         } else {
-            btnCamera.setBackgroundResource(R.drawable.btn_bg_round)
-            btnCamera.setImageResource(startButtonId)
+            views?.btnCamera?.setBackgroundResource(R.drawable.btn_bg_round)
+            views?.btnCamera?.setImageResource(startButtonId)
         }
     }
 
@@ -371,8 +375,8 @@ abstract class CaptureServiceBase(
             hideByTouching = false
             showButtonAll()
         }
-        layoutParam.x = clipInt(0, maxX, startLpX + deltaX.toInt())
-        layoutParam.y = clipInt(0, maxY, startLpY + deltaY.toInt())
+        layoutParam.x = (startLpX + deltaX.toInt()).clip(0, maxX)
+        layoutParam.y = (startLpY + deltaY.toInt()).clip(0, maxY)
         if (save) {
             val dm = resources.displayMetrics
             App1.pref.edit()
@@ -380,8 +384,8 @@ abstract class CaptureServiceBase(
                 .put(fpCameraButtonY, layoutParam.y.px2dp(dm))
                 .apply()
         }
-        windowManager.updateViewLayout(viewRoot, layoutParam)
-        btnCamera.updateExclusion()
+        views?.root?.let { windowManager.updateViewLayout(it, layoutParam) }
+        views?.btnCamera?.updateExclusion()
         return true
     }
 
@@ -415,6 +419,7 @@ abstract class CaptureServiceBase(
                 }
                 return true
             }
+
             MotionEvent.ACTION_CANCEL -> {
                 if (!updateDragging(ev, save = true)) {
                     hideByTouching = false
@@ -429,8 +434,6 @@ abstract class CaptureServiceBase(
     ///////////////////////////////////////////////////////////////
 
     private fun createRunningNotification(isRecording: Boolean): Notification {
-
-
         val channelId = when {
             isVideo -> NOTIFICATION_CHANNEL_VIDEO
             else -> NOTIFICATION_CHANNEL_STILL
@@ -504,7 +507,7 @@ abstract class CaptureServiceBase(
 
                     try {
                         log.e(ex, "captureJob failed. open activity…")
-                        val state = suspendCoroutine<Capture.MediaProjectionState> { cont ->
+                        val state = suspendCoroutine { cont ->
                             ActScreenCaptureIntent.cont = cont
                             startActivity(
                                 Intent(
@@ -557,9 +560,10 @@ fun <T : CaptureServiceBase, R : Any?> T?.runOnService(
     null -> {
         CaptureServiceBase.logCompanion.eToast(context, false, "service not running.")
         if (notificationId != null) {
-            systemService<NotificationManager>(context)?.cancel(notificationId)
+            context.systemService<NotificationManager>()?.cancel(notificationId)
         }
         null
     }
+
     else -> block.invoke(this)
 }

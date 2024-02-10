@@ -1,6 +1,10 @@
 package jp.juggler.util
 
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 
 class TileDrawable(private val stepSize: Int, private val colorA: Int, private val colorB: Int) :
@@ -27,7 +31,7 @@ class TileDrawable(private val stepSize: Int, private val colorA: Int, private v
                 rect.right = x + stepSize
 
                 if (Rect.intersects(dirtyBounds, rect)) {
-                    paint.color = if(oddX) colorB else colorA
+                    paint.color = if (oddX) colorB else colorA
                     canvas.drawRect(rect, paint)
                 }
 
@@ -39,7 +43,7 @@ class TileDrawable(private val stepSize: Int, private val colorA: Int, private v
     }
 
     // deprecated in API29. This method is no longer used in graphics optimizations
-    @Suppress("DEPRECATION", "DeprecatedCallableAddReplaceWith")
+    @Suppress("DeprecatedCallableAddReplaceWith")
     @Deprecated("Deprecated in Java")
     override fun getOpacity() = PixelFormat.TRANSLUCENT
 

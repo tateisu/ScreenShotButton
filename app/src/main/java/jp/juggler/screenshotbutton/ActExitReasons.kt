@@ -29,7 +29,7 @@ class ActExitReasons : AppCompatActivity() {
 
     private inner class MyAdapter : BaseAdapter() {
         val list = try {
-            ExitReasons.getExitReasons(applicationContext)
+            getExitReasons()
         } catch (ex: Throwable) {
             listOf(ex.withCaption("getExitReasons failed."))
         }

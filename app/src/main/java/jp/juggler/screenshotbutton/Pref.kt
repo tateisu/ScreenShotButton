@@ -2,67 +2,66 @@ package jp.juggler.screenshotbutton
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Build
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.CompoundButton
 import android.widget.EditText
+import java.util.*
 
-@Suppress("EqualsOrHashCode")
-abstract class BasePref<T>(val key : String) {
+abstract class BasePref<T>(val key: String) {
 
     init {
-        if( Pref.map[key] != null )
+        if (Pref.map[key] != null) {
             error("Preference key duplicate: $key")
-        else
+        } else {
             @Suppress("LeakingThis")
             Pref.map[key] = this
+        }
     }
 
-    override fun equals(other : Any?) : Boolean {
-        return this === other
+    override fun hashCode(): Int = Objects.hash(key)
+
+    override fun equals(other: Any?): Boolean {
+        return key == (other as? BasePref<*>)?.key
     }
 
-    fun remove(e : SharedPreferences.Editor) {
+    fun remove(e: SharedPreferences.Editor) {
         e.remove(key)
     }
 
-    abstract fun put(editor : SharedPreferences.Editor, v : T)
-    abstract fun invoke(pref : SharedPreferences) : T
+    abstract fun put(editor: SharedPreferences.Editor, v: T)
 
-    operator fun invoke(context : Context) : T {
-        return invoke(Pref.pref(context))
-    }
-
+    abstract operator fun invoke(pref: SharedPreferences): T
+    operator fun invoke(context: Context) = invoke(context.sharedPreferences)
 }
 
 @Suppress("unused")
-fun SharedPreferences.Editor.remove(item : BasePref<*>) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.remove(item: BasePref<*>): SharedPreferences.Editor {
     item.remove(this)
     return this
 }
 
 class BooleanPref(
-    key : String,
-    private val defVal : Boolean
+    key: String,
+    private val defVal: Boolean
 ) : BasePref<Boolean>(key) {
 
-    override operator fun invoke(pref : SharedPreferences) : Boolean {
+    override operator fun invoke(pref: SharedPreferences): Boolean {
         return pref.getBoolean(key, defVal)
     }
 
-    override fun put(editor : SharedPreferences.Editor, v : Boolean) {
+    override fun put(editor: SharedPreferences.Editor, v: Boolean) {
         editor.putBoolean(key, v)
     }
 
-    fun bindSwitch(pref:SharedPreferences,btn:CompoundButton,callback :(Boolean)->Unit = {}) {
+    fun bindSwitch(pref: SharedPreferences, btn: CompoundButton, callback: (Boolean) -> Unit = {}) {
         btn.isChecked = invoke(pref)
         btn.setOnCheckedChangeListener { _, isChecked ->
-            val e =pref.edit()
-            if( isChecked == defVal){
+            val e = pref.edit()
+            if (isChecked == defVal) {
                 e.remove(key)
-            }else{
-                e.putBoolean(key,isChecked)
+            } else {
+                e.putBoolean(key, isChecked)
             }
             e.apply()
 
@@ -71,45 +70,46 @@ class BooleanPref(
     }
 }
 
-class IntPref(key : String, @Suppress("MemberVisibilityCanBePrivate") val defVal : Int) : BasePref<Int>(key) {
+class IntPref(key: String, @Suppress("MemberVisibilityCanBePrivate") val defVal: Int) :
+    BasePref<Int>(key) {
 
-    override operator fun invoke(pref : SharedPreferences) : Int {
+    override operator fun invoke(pref: SharedPreferences): Int {
         return pref.getInt(key, defVal)
     }
 
-    override fun put(editor : SharedPreferences.Editor, v : Int) {
+    override fun put(editor: SharedPreferences.Editor, v: Int) {
         editor.putInt(key, v)
     }
 
     fun saveIfModified(pref: SharedPreferences, iv: Int) {
-        val e =pref.edit()
-        if( iv == defVal){
+        val e = pref.edit()
+        if (iv == defVal) {
             e.remove(key)
-        }else{
-            e.putInt(key,iv)
+        } else {
+            e.putInt(key, iv)
         }
         e.apply()
     }
 }
 
-class LongPref(key : String, private val defVal : Long) : BasePref<Long>(key) {
+class LongPref(key: String, private val defVal: Long) : BasePref<Long>(key) {
 
-    override operator fun invoke(pref : SharedPreferences) : Long {
+    override operator fun invoke(pref: SharedPreferences): Long {
         return pref.getLong(key, defVal)
     }
 
-    override fun put(editor : SharedPreferences.Editor, v : Long) {
+    override fun put(editor: SharedPreferences.Editor, v: Long) {
         editor.putLong(key, v)
     }
 }
 
-class FloatPref(key : String, private val defVal : Float) : BasePref<Float>(key) {
+class FloatPref(key: String, private val defVal: Float) : BasePref<Float>(key) {
 
-    override operator fun invoke(pref : SharedPreferences) : Float {
+    override operator fun invoke(pref: SharedPreferences): Float {
         return pref.getFloat(key, defVal)
     }
 
-    override fun put(editor : SharedPreferences.Editor, v : Float) {
+    override fun put(editor: SharedPreferences.Editor, v: Float) {
         editor.putFloat(key, v)
     }
 }
@@ -119,17 +119,17 @@ class StringPref(
     @Suppress("MemberVisibilityCanBePrivate") val defVal: String
 ) : BasePref<String>(key) {
 
-    override operator fun invoke(pref : SharedPreferences) : String {
-        return pref.getString(key,defVal) ?: defVal
+    override operator fun invoke(pref: SharedPreferences): String {
+        return pref.getString(key, defVal) ?: defVal
     }
 
-    override fun put(editor : SharedPreferences.Editor, v : String) {
+    override fun put(editor: SharedPreferences.Editor, v: String) {
         editor.putString(key, v)
     }
 
-    fun toInt(pref : SharedPreferences) = invoke(pref).toIntOrNull() ?: defVal.toInt()
+    fun toInt(pref: SharedPreferences) = invoke(pref).toIntOrNull() ?: defVal.toInt()
 
-    fun bindEditText(pref:SharedPreferences,editText: EditText) {
+    fun bindEditText(pref: SharedPreferences, editText: EditText) {
         editText.setText(invoke(pref))
         editText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
@@ -146,36 +146,35 @@ class StringPref(
     }
 }
 
-fun SharedPreferences.Editor.put(item : BooleanPref, v : Boolean) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.put(item: BooleanPref, v: Boolean): SharedPreferences.Editor {
     item.put(this, v)
     return this
 }
 
-fun SharedPreferences.Editor.put(item : StringPref, v : String) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.put(item: StringPref, v: String): SharedPreferences.Editor {
     item.put(this, v)
     return this
 }
 
-fun SharedPreferences.Editor.put(item : IntPref, v : Int) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.put(item: IntPref, v: Int): SharedPreferences.Editor {
     item.put(this, v)
     return this
 }
 
-fun SharedPreferences.Editor.put(item : LongPref, v : Long) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.put(item: LongPref, v: Long): SharedPreferences.Editor {
     item.put(this, v)
     return this
 }
 
-fun SharedPreferences.Editor.put(item : FloatPref, v : Float) : SharedPreferences.Editor {
+fun SharedPreferences.Editor.put(item: FloatPref, v: Float): SharedPreferences.Editor {
     item.put(this, v)
     return this
 }
+
+val Context.sharedPreferences: SharedPreferences
+    get() = getSharedPreferences("Pref", Context.MODE_PRIVATE)
 
 object Pref {
-
-    fun pref(context : Context) :SharedPreferences =
-        context.getSharedPreferences("Pref",Context.MODE_PRIVATE)
-
 
     // キー名と設定項目のマップ。インポートやアプリ設定で使う
     val map = HashMap<String, BasePref<*>>()

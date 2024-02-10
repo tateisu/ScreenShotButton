@@ -13,11 +13,21 @@ import android.view.View
 import android.view.Window
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
-import jp.juggler.util.*
-import kotlinx.coroutines.*
+import jp.juggler.util.LogCategory
+import jp.juggler.util.TileDrawable
+import jp.juggler.util.addBackPressed
+import jp.juggler.util.deleteDocument
+import jp.juggler.util.findMedia
+import jp.juggler.util.isExternalStorageDocument
+import jp.juggler.util.pathFromDocumentUri
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
@@ -122,7 +132,7 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
     private var lastUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        addBackPressed{
+        addBackPressed {
             log.d("backPressed")
             finish()
         }
@@ -211,17 +221,16 @@ class ActViewer : AppCompatActivity(), CoroutineScope, View.OnClickListener {
         val path = pathFromDocumentUri(this, uri)
             ?: error("can't get path from document uri")
 
-        launch{
+        launch {
             try {
                 tvDesc.text = "loading…\n$path"
 
                 val bitmap = withContext(Dispatchers.IO) {
-                    @Suppress("BlockingMethodInNonBlockingContext")
                     contentResolver.openInputStream(uri).use {
                         BitmapFactory.decodeStream(it)
                     }
-                }
-                    ?: error("bitmap is null")
+                } ?: error("bitmap is null")
+
                 if (coroutineContext.isActive) {
                     ivImage.setImageBitmap(bitmap)
                     this@ActViewer.bitmap = bitmap

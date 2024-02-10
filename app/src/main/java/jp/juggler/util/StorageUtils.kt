@@ -6,13 +6,11 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
-import jp.juggler.screenshotbutton.API_STORAGE_VOLUME
 import jp.juggler.screenshotbutton.App1
 
 @Suppress("unused")
@@ -65,26 +63,18 @@ fun isExternalStorageDocument(uri: Uri) =
 private const val PATH_TREE = "tree"
 private const val PATH_DOCUMENT = "document"
 
-// throw error if can'f find ID
+// throw error if can't find ID
 private fun getDocumentId(documentUri: Uri): String {
     val paths = documentUri.pathSegments
-    if (paths.size >= 2 && PATH_DOCUMENT == paths[0]) {
+    return when {
         // document
-        return paths[1]
-    }
-
-    if (paths.size >= 4 && PATH_TREE == paths[0]
-        && PATH_DOCUMENT == paths[2]
-    ) {
+        paths.size >= 2 && PATH_DOCUMENT == paths[0] -> paths[1]
         // document in tree
-        return paths[3]
-    }
-
-    if (paths.size >= 2 && PATH_TREE == paths[0]) {
+        paths.size >= 4 && PATH_TREE == paths[0] && PATH_DOCUMENT == paths[2] -> paths[3]
         // tree
-        return paths[1]
+        paths.size >= 2 && PATH_TREE == paths[0] -> paths[1]
+        else -> error("getDocumentId() can't find ID from $documentUri")
     }
-    error("getDocumentId() can'f find ID from $documentUri")
 }
 
 private val reAndroidDataFolder = """/Android/data/.*""".toRegex()
@@ -107,7 +97,6 @@ private fun getVolumePathApi30(context: Context, uuid: String): String {
     return path ?: error("can't find volume for uuid $uuid")
 }
 
-@TargetApi(24)
 private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): String =
     when (uuid) {
         "primary" -> storageManager.primaryStorageVolume
@@ -118,49 +107,6 @@ private fun getVolumePathApi24(storageManager: StorageManager, uuid: String): St
         StorageVolume::class.java.getMethod("getPath").invoke(it).cast()
     } ?: error("can't find volume for uuid $uuid")
 
-@TargetApi(21)
-private fun getVolumePathApi21(storageManager: StorageManager, uuid: String): String =
-    when (uuid) {
-
-        "primary" -> {
-            @Suppress("DEPRECATION")
-            Environment.getExternalStorageDirectory().toString()
-        }
-
-        else -> {
-
-            val volumes = storageManager.javaClass.getMethod("getVolumeList")
-                .invoke(storageManager)
-                .cast<Array<*>>()
-                ?: error("storageManager.getVolumeList() failed.")
-
-            if (volumes.isEmpty())
-                error("storageManager.getVolumeList() is empty.")
-
-            val volumeClass = volumes.first()?.javaClass
-                ?: error("volumes[0].javaClass is null.")
-
-            val getUuid = volumeClass.getMethod("getUuid")
-
-            val volume = volumes.find {
-                it ?: return@find false
-                uuid == getUuid.invoke(it)
-            } ?: error("missing volume for uuid $uuid")
-
-            val state = volumeClass.getMethod("getState")
-                .invoke(volume)
-                .cast<String>()
-
-            if (state != "mounted")
-                error("uuid is not mounted. $state")
-
-            volumeClass.getMethod("getPath")
-                .invoke(volume)
-                .cast<String>()
-                .notEmpty()
-                ?: error("volume.getPath() failed.")
-        }
-    }
 
 //fun getDataColumn(
 //    context: Context,
@@ -185,17 +131,12 @@ fun pathFromDocumentUriOrThrow(context: Context, uri: Uri) = when {
         val split = getDocumentId(uri).split(":").dropLastWhile { it.isEmpty() }
         if (split.size < 2) error("document id has no semicolon.")
 
-        val storageManager = systemService<StorageManager>(context)!!
+        val storageManager :StorageManager = context.systemService()!!
 
         val volumePath = when {
-            Build.VERSION.SDK_INT >= 30 ->
-                getVolumePathApi30(context, split[0])
+            Build.VERSION.SDK_INT >= 30 -> getVolumePathApi30(context, split[0])
 
-            Build.VERSION.SDK_INT >= API_STORAGE_VOLUME ->
-                getVolumePathApi24(storageManager, split[0])
-
-            else ->
-                getVolumePathApi21(storageManager, split[0])
+            else -> getVolumePathApi24(storageManager, split[0])
         }
 
         "$volumePath/${split[1]}"
@@ -213,7 +154,8 @@ fun pathFromDocumentUriOrThrow(context: Context, uri: Uri) = when {
 //                    id.toLong()
 //                )
 //                    getDataColumn(context, uri2, null, null) ?: error("can't path of $uri and $uri2")
-//                    // メディアスキャナに登録される前だと IllegalArgumentException: Unknown URI: content://downloads/public_downloads/6297 となる
+//                    // メディアスキャナに登録される前だと
+//                    // IllegalArgumentException: Unknown URI: content://downloads/public_downloads/6297 となる
 //            }
 //        }
 

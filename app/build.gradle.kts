@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("io.gitlab.arturbosch.detekt")
 }
 
 android {
@@ -60,4 +61,17 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+detekt {
+    // 並列処理
+    parallel = true
+
+    // デフォルト設定の上に自分の設定ファイルを適用する
+    buildUponDefaultConfig = true
+
+    // Detektの関する設定ファイル
+    config.from(files("$rootDir/config/detekt/detekt.yml"))
+
+    basePath = rootDir.absolutePath
 }

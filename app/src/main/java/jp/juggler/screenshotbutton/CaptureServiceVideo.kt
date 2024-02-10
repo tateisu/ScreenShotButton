@@ -110,5 +110,4 @@ class CaptureServiceVideo : CaptureServiceBase(isVideo = true) {
             )
         }
     }
-
 }

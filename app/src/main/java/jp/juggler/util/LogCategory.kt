@@ -5,7 +5,11 @@ import android.util.Log
 import android.widget.Toast
 import jp.juggler.screenshotbutton.App1
 import jp.juggler.screenshotbutton.Pref
-import java.io.*
+import java.io.BufferedWriter
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.io.PrintWriter
 import java.util.*
 
 @Suppress("unused")
@@ -52,25 +56,27 @@ class LogCategory(private val tag: String) {
 
         @Volatile
         private var outLogToFile = defaultOutLogToFile
+
         @Volatile
         private var outLogToFileEx = defaultOutLogToFileEx
+
         @Volatile
         private var logWriter: PrintWriter? = null
 
-        fun getLogDirectory(context:Context)=
+        fun getLogDirectory(context: Context) =
             File(context.getExternalFilesDir(null), "log")
 
         private fun PrintWriter.appendHeader(lv: String, tag: String): PrintWriter {
             val cal = Calendar.getInstance()
             printf(
-                "%d-%02d-%02d %02d:%02d:%02d.%03d "
-                , cal.get(Calendar.YEAR)
-                , cal.get(Calendar.MONTH) + 1
-                , cal.get(Calendar.DAY_OF_MONTH)
-                , cal.get(Calendar.HOUR_OF_DAY)
-                , cal.get(Calendar.MINUTE)
-                , cal.get(Calendar.SECOND)
-                , cal.get(Calendar.MILLISECOND)
+                "%d-%02d-%02d %02d:%02d:%02d.%03d ",
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.DAY_OF_MONTH),
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                cal.get(Calendar.SECOND),
+                cal.get(Calendar.MILLISECOND)
             )
             append(Thread.currentThread().id.toString())
             append(' ')
@@ -107,7 +113,7 @@ class LogCategory(private val tag: String) {
                 outLogToFileEx = defaultOutLogToFileEx
                 logWriter = null
             } else try {
-                val dir = File(getLogDirectory(context), getCurrentTimeString().substring(0,6))
+                val dir = File(getLogDirectory(context), getCurrentTimeString().substring(0, 6))
 
                 if (!dir.mkdirs() && !dir.isDirectory)
                     error("mkdir failed. $dir")
@@ -271,5 +277,4 @@ class LogCategory(private val tag: String) {
         outLogToFileEx(tag, E, msg, ex)
         showToast(context, ex, msg)
     }
-
 }

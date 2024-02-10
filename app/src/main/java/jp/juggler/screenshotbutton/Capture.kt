@@ -1,7 +1,6 @@
 package jp.juggler.screenshotbutton
 
 import android.annotation.SuppressLint
-import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -11,15 +10,38 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.*
+import android.media.Image
+import android.media.ImageReader
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.*
+import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.view.Surface
 import android.view.WindowManager
-import jp.juggler.util.*
-import kotlinx.coroutines.*
+import jp.juggler.util.LogCategory
+import jp.juggler.util.createResizedBitmap
+import jp.juggler.util.deleteDocument
+import jp.juggler.util.generateDocument
+import jp.juggler.util.getCurrentTimeString
+import jp.juggler.util.getScreenSize
+import jp.juggler.util.pathFromDocumentUri
+import jp.juggler.util.runOnMainThread
+import jp.juggler.util.suspend
+import jp.juggler.util.systemService
+import jp.juggler.util.use
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -61,8 +83,8 @@ object Capture {
     fun onInitialize(context: Context) {
         log.d("onInitialize")
         mediaScannerTracker = MediaScannerTracker(context.applicationContext, handler)
-        mediaProjectionManager = systemService(context)!!
-        windowManager = systemService(context)!!
+        mediaProjectionManager = context.systemService()!!
+        windowManager = context.systemService()!!
     }
 
     // mediaProjection と screenCaptureIntentを解放する
@@ -258,10 +280,10 @@ object Capture {
         if (!range.contains(videoBitRate))
             error("(Bit rate) $videoBitRate is not in ${range.lower}..${range.upper}.")
 
-        val realSize = getScreenSize(context)
-        val longside = max(realSize.x, realSize.y)
-        if (longside > videoCodecInfo.maxSize)
-            error("current screen size is ${longside}px, but selected video codec has size limit ${videoCodecInfo.maxSize}px.")
+        val realSize = context.getScreenSize()
+        val longSide = max(realSize.x, realSize.y)
+        if (longSide > videoCodecInfo.maxSize)
+            error("current screen size is ${longSide}px, but selected video codec has size limit ${videoCodecInfo.maxSize}px.")
 
         val codec = createVideoCodec(realSize.x, realSize.y)
         codec.release()
@@ -346,14 +368,14 @@ object Capture {
 
 
         init {
-            val realSize = getScreenSize(context)
+            val realSize = context.getScreenSize()
 
             screenWidth = realSize.x
             screenHeight = realSize.y
             densityDpi = context.resources.displayMetrics.densityDpi
 
             if (!canCapture())
-                updateMediaProjection("CaptureEnv.ctor")
+                updateMediaProjection("CaptureEnv.init")
 
         }
 
@@ -377,8 +399,6 @@ object Capture {
             muxerStarted = false
         }
 
-
-        @TargetApi(26)
         suspend fun captureVideo(): CaptureResult {
 
 
@@ -457,6 +477,7 @@ object Capture {
                                                 // don't write if info has config flag.
                                                 info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 -> {
                                                 }
+
                                                 size > 0 && muxerStarted -> {
                                                     encodedData.position(offset)
                                                     encodedData.limit(offset + size)
@@ -482,12 +503,11 @@ object Capture {
                             videoCodec.start()
                             bench("videoCodec.start")
 
-                            @Suppress("BlockingMethodInNonBlockingContext")
                             muxer = MediaMuxer(
                                 parcelFileDescriptor.fileDescriptor,
                                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
                             )
-                            bench("MediaMuxer ctor")
+                            bench("MediaMuxer created")
 
                             var virtualDisplayResumed = false
                             fun setResumed(resumed: Boolean) {
@@ -620,7 +640,7 @@ object Capture {
                 tmpWidth,
                 tmpHeight,
                 Bitmap.Config.ARGB_8888
-            )?.use { tmpBitmap ->
+            ).use { tmpBitmap ->
 
                 tmpBitmap.copyPixelsFromBuffer(plane.buffer)
                 bench("copyPixelsFromBuffer")
@@ -648,6 +668,7 @@ object Capture {
                             mimeType = "image/png"
                             compressFormat = Bitmap.CompressFormat.PNG
                         }
+
                         else -> {
                             mimeType = "image/jpeg"
                             compressFormat = Bitmap.CompressFormat.JPEG
@@ -692,10 +713,10 @@ object Capture {
                     )
                 } finally {
                     if (srcBitmap !== tmpBitmap) {
-                        srcBitmap?.recycle()
+                        srcBitmap.recycle()
                     }
                 }
-            } ?: error("bitmap creation failed.")
+            }
         }
 
         @SuppressLint("WrongConstant")
@@ -759,8 +780,7 @@ object Capture {
 
                 try {
                     val maxTry = 10
-                    var nTry = 1
-                    while (nTry <= maxTry) {
+                    for (nTry in 1..maxTry) {
 
                         // service closed by other thread
                         if (mediaProjectionState != MediaProjectionState.HasMediaProjection)
@@ -787,7 +807,7 @@ object Capture {
                             val errMessage = ex.message
                             if (errMessage?.contains(ERROR_BLANK_IMAGE) == true) {
                                 // ブランクイメージは異常ではない場合がありうるのでリトライ回数制限あり
-                                if (++nTry <= maxTry) {
+                                if (nTry < maxTry) {
                                     log.w(errMessage)
                                     delay(10L)
                                     continue
@@ -813,6 +833,7 @@ object Capture {
     @Volatile
     var isCapturing = false
 
+    @Suppress("MemberNameEqualsClassName")
     suspend fun capture(
         context: Context,
         timeClick: Long,

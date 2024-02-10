@@ -17,7 +17,7 @@ class App1 : Application() {
             if (!isPrepared) {
                 val context = contextArg.applicationContext
                 isPrepared = true
-                pref = Pref.pref(context)
+                pref = context.sharedPreferences
                 LogCategory.onInitialize(context)
                 Capture.onInitialize(context)
             }

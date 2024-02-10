@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.DocumentsContract
@@ -17,7 +16,17 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import jp.juggler.screenshotbutton.databinding.ActMainBinding
-import jp.juggler.util.*
+import jp.juggler.util.ActionsDialog
+import jp.juggler.util.LogCategory
+import jp.juggler.util.canDrawOverlaysCompat
+import jp.juggler.util.cast
+import jp.juggler.util.dp2px
+import jp.juggler.util.isEnabledWithColor
+import jp.juggler.util.notEmpty
+import jp.juggler.util.pathFromDocumentUri
+import jp.juggler.util.pathFromDocumentUriOrThrow
+import jp.juggler.util.toUriOrNull
+import jp.juggler.util.vg
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -87,6 +96,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                         timeStartButtonTappedStill = SystemClock.elapsedRealtime()
                         dispatch()
                     }
+
                     else -> {
                         service.stopWithReason("StopButton")
                     }
@@ -112,6 +122,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                         timeStartButtonTappedVideo = SystemClock.elapsedRealtime()
                         dispatch()
                     }
+
                     else -> {
                         service.stopWithReason("StopButton")
                     }
@@ -208,10 +219,6 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
         // 動作環境により動画キャプチャができない場合、エラーを表示する
         val message = when {
-
-            Build.VERSION.SDK_INT < API_MEDIA_MUXER_FILE_DESCRIPTER ->
-                getString(R.string.media_muxer_too_old)
-
             MediaCodecInfoAndType.getList(this).isEmpty() ->
                 getString(R.string.video_codec_missing)
 
@@ -300,6 +307,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             when {
                 CaptureServiceStill.isAlive() ->
                     getString(R.string.status_running)
+
                 else ->
                     getString(
                         R.string.stopped_by,
@@ -315,6 +323,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
                 when {
                     CaptureServiceVideo.isAlive() ->
                         getString(R.string.status_running)
+
                     else ->
                         getString(
                             R.string.stopped_by,
@@ -382,14 +391,12 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
     private fun openSaveTreeUriChooser() {
         arDocumentTree.launch(
             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                if (Build.VERSION.SDK_INT >= API_EXTRA_INITIAL_URI) {
-                    val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
-                    if (saveTreeUri.isNotEmpty()) {
-                        putExtra(
-                            DocumentsContract.EXTRA_INITIAL_URI,
-                            saveTreeUri
-                        )
-                    }
+                val saveTreeUri = Pref.spSaveTreeUri(App1.pref)
+                if (saveTreeUri.isNotEmpty()) {
+                    putExtra(
+                        DocumentsContract.EXTRA_INITIAL_URI,
+                        saveTreeUri
+                    )
                 }
             }
         )
@@ -448,7 +455,7 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
 
     @SuppressLint("InlinedApi")
     private fun prepareOverlay(): Boolean {
-        if (canDrawOverlaysCompat(this)) return true
+        if (canDrawOverlaysCompat()) return true
 
         return AlertDialog.Builder(this)
             .setMessage(R.string.please_allow_overlay_permission)
@@ -464,15 +471,11 @@ class ActMain : AppCompatActivity(), View.OnClickListener {
             .showEx()
     }
 
-    private fun handleOverlayResult(): Boolean {
-        // 設定画面から戻るボタンなどで復帰するため、 resultCode が RESULT_OK になることはない
-        return canDrawOverlaysCompat(this)
-    }
+    // 設定画面から戻るボタンなどで復帰するため、 resultCode が RESULT_OK になることはない
+    private fun handleOverlayResult(): Boolean = canDrawOverlaysCompat()
 
     ///////////////////////////////////////////////////
     // ダイアログの多重表示を防止する
-
-
     private fun AlertDialog.Builder.showEx(): Boolean {
         if (lastDialog?.get()?.isShowing == true) {
             log.w("dialog is already showing.")

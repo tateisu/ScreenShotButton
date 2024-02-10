@@ -3,7 +3,7 @@ package jp.juggler.screenshotbutton
 import android.content.Context
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
-import jp.juggler.util.clipInt
+import jp.juggler.util.clip
 import jp.juggler.util.getScreenSize
 import jp.juggler.util.notZero
 import kotlin.math.max
@@ -78,7 +78,7 @@ data class MediaCodecInfoAndType(
 
         private var list_: List<MediaCodecInfoAndType>? = null
 
-        fun getList(context: Context):List<MediaCodecInfoAndType> = synchronized(this) {
+        fun getList(context: Context): List<MediaCodecInfoAndType> = synchronized(this) {
             var list = list_
             if (list == null) {
                 list = ArrayList<MediaCodecInfoAndType>().apply {
@@ -91,21 +91,27 @@ data class MediaCodecInfoAndType(
                         }
                     }
 
-                    val realSize = getScreenSize(context)
+                    val realSize = context.getScreenSize()
                     val longside = max(realSize.x, realSize.y)
-                    for ((i, v) in sortedBy { -clipInt(0, longside, it.maxSize) }.withIndex()) {
+                    for ((i, v) in sortedByDescending {
+                        it.maxSize.clip(0, longside)
+                    }.withIndex()) {
                         v.rankingSize = i + 1
                     }
-                    for ((i, v) in sortedBy { -clipInt(0, 120, it.maxFrameRate) }.withIndex()) {
+                    for ((i, v) in sortedByDescending {
+                        it.maxFrameRate.clip(0, 120)
+                    }.withIndex()) {
                         v.rankingFrameRate = i + 1
                     }
-                    for ((i, v) in sortedBy { -clipInt(0, 30000000, it.maxBitRate) }.withIndex()) {
+                    for ((i, v) in sortedByDescending {
+                        it.maxBitRate.clip(0, 30000000)
+                    }.withIndex()) {
                         v.rankingBitRate = i + 1
                     }
                     for (v in this) {
                         v.rankingTotal = v.rankingSize + v.rankingFrameRate + v.rankingBitRate
                     }
-                    sortWith(Comparator { a, b ->
+                    sortWith { a, b ->
                         if (a == null || b == null) {
                             compareNull(a, b)
                         } else {
@@ -117,7 +123,7 @@ data class MediaCodecInfoAndType(
                                 ?: a.type.compareTo(b.type).notZero()
                                 ?: a.info.name.compareTo(b.info.name)
                         }
-                    })
+                    }
                 }
                 list_ = list
             }

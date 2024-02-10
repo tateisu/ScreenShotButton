@@ -9,7 +9,7 @@
 /.idea/assetWizardSettings.xml
 /.idea/StickySelectionHighlights.xml
 .DS_Store
-/build
+build/
 /captures
 .externalNativeBuild
 .cxx
