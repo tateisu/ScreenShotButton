@@ -2,6 +2,7 @@
   <dictionary name="tateisu">
     <words>
       <w>asci</w>
+      <w>documentfile</w>
       <w>hevc</w>
       <w>kotlinx</w>
       <w>muxer</w>

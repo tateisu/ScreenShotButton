@@ -13,6 +13,7 @@
 /captures
 .externalNativeBuild
 .cxx
+local.properties
 
 *.apk
 output.json
