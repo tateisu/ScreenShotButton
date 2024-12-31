@@ -1,5 +1,12 @@
-# ScreenShotButton
+# (Archived)ScreenShotButton
 Android app that shows overlay screen shot button.
+
+### END OF LIFE
+Starting with Android 14, every time you capture a still image, new screenCaptureIntent is required.
+To continue using the same screenCaptureIntent, 
+need to implement like continuously screen capture and save the data only when needed.
+I think this is a bit too heavy for gaming purposes,
+so I decided to just use the OS standard Volume-Down + Power combination.
 
 ### Feature
 - Showing post view after shooting.
